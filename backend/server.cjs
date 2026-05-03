@@ -6,6 +6,7 @@ const path = require("path");
 const { google } = require("googleapis");
 const { createClient } = require("@supabase/supabase-js");
 require("dotenv").config();
+console.log("REFRESH TOKEN:", process.env.GOOGLE_REFRESH_TOKEN);
 
 const app = express();
 

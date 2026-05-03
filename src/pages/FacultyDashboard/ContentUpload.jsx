@@ -514,7 +514,7 @@ function AssessmentForm({ faculty }) {
       formData.append("unit", form.unit);
       formData.append("title", form.title);
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload-content`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload-assessment`, {
         method: "POST",
         body: formData,
       });

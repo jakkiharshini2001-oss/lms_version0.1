@@ -8,8 +8,11 @@ const { createClient } = require("@supabase/supabase-js");
 require("dotenv").config();
 
 const app = express();
+
+// ✅ FIX 1: ADD BOTH BODY PARSERS
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 //////////////////////////////////////////////////////
 // 📁 LOCAL STORAGE
@@ -33,7 +36,7 @@ const supabase = createClient(
 );
 
 //////////////////////////////////////////////////////
-// 🔐 GOOGLE DRIVE AUTH (FIXED FOR PRODUCTION)
+// 🔐 GOOGLE DRIVE AUTH
 //////////////////////////////////////////////////////
 
 const oauth2Client = new google.auth.OAuth2(
@@ -41,7 +44,6 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_SECRET
 );
 
-// ✅ Use refresh token from ENV
 oauth2Client.setCredentials({
   refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
 });
@@ -56,28 +58,33 @@ const drive = google.drive({
 //////////////////////////////////////////////////////
 
 async function uploadToDrive(file) {
-  const response = await drive.files.create({
-    requestBody: {
-      name: file.originalname,
-      parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
-    },
-    media: {
-      mimeType: file.mimetype,
-      body: fs.createReadStream(file.path),
-    },
-  });
+  try {
+    const response = await drive.files.create({
+      requestBody: {
+        name: file.originalname,
+        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+      },
+      media: {
+        mimeType: file.mimetype,
+        body: fs.createReadStream(file.path),
+      },
+    });
 
-  const fileId = response.data.id;
+    const fileId = response.data.id;
 
-  await drive.permissions.create({
-    fileId,
-    requestBody: {
-      role: "reader",
-      type: "anyone",
-    },
-  });
+    await drive.permissions.create({
+      fileId,
+      requestBody: {
+        role: "reader",
+        type: "anyone",
+      },
+    });
 
-  return fileId;
+    return fileId;
+  } catch (err) {
+    console.error("Drive Upload Error:", err);
+    throw err;
+  }
 }
 
 //////////////////////////////////////////////////////
@@ -104,6 +111,9 @@ async function getFacultyName(faculty_id) {
 
 app.post("/upload-content", upload.single("file"), async (req, res) => {
   try {
+    console.log("UPLOAD HIT ✅");
+    console.log("BODY:", req.body);
+
     const {
       faculty_id,
       type,
@@ -122,9 +132,9 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
     const faculty_name = await getFacultyName(faculty_id);
 
     const fileId = await uploadToDrive(req.file);
+
     fs.unlinkSync(req.file.path);
 
-    // VIDEO
     if (type === "video") {
       const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
 
@@ -146,7 +156,6 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
       return res.json({ success: true, embedUrl });
     }
 
-    // PDF
     if (type === "pdf") {
       const fileUrl = `https://drive.google.com/uc?id=${fileId}`;
 
@@ -170,8 +179,8 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
 
     return res.status(400).json({ error: "Invalid type" });
   } catch (error) {
-    console.error("Upload Error:", error.message);
-    res.status(500).json({ error: error.message });
+    console.error("UPLOAD ERROR:", error);
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -181,6 +190,8 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
 
 app.post("/upload-assessment", upload.single("file"), async (req, res) => {
   try {
+    console.log("ASSESSMENT UPLOAD HIT ✅");
+
     const {
       faculty_id,
       department,
@@ -198,6 +209,7 @@ app.post("/upload-assessment", upload.single("file"), async (req, res) => {
     const faculty_name = await getFacultyName(faculty_id);
 
     const fileId = await uploadToDrive(req.file);
+
     fs.unlinkSync(req.file.path);
 
     await supabase.from("assessments").insert([
@@ -214,58 +226,15 @@ app.post("/upload-assessment", upload.single("file"), async (req, res) => {
       },
     ]);
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error) {
-    console.error("Assessment Error:", error.message);
-    res.status(500).json({ error: error.message });
+    console.error("ASSESSMENT ERROR:", error);
+    return res.status(500).json({ error: error.message });
   }
 });
 
 //////////////////////////////////////////////////////
-// 📥 FETCH CONTENT
-//////////////////////////////////////////////////////
-
-app.get("/faculty-content/:faculty_id", async (req, res) => {
-  const { faculty_id } = req.params;
-
-  const { data: videos } = await supabase
-    .from("videos")
-    .select("*")
-    .eq("faculty_id", faculty_id);
-
-  const { data: pdfs } = await supabase
-    .from("pdfs")
-    .select("*")
-    .eq("faculty_id", faculty_id);
-
-  const { data: assessments } = await supabase
-    .from("assessments")
-    .select("*")
-    .eq("faculty_id", faculty_id);
-
-  res.json({ videos, pdfs, assessments });
-});
-
-//////////////////////////////////////////////////////
-// 🗑 DELETE
-//////////////////////////////////////////////////////
-
-app.delete("/delete-content/:type/:id", async (req, res) => {
-  const map = {
-    video: "videos",
-    pdf: "pdfs",
-    assessment: "assessments",
-  };
-
-  const table = map[req.params.type];
-
-  await supabase.from(table).delete().eq("id", req.params.id);
-
-  res.json({ success: true });
-});
-
-//////////////////////////////////////////////////////
-// ❤️ HEALTH CHECK (IMPORTANT FOR RENDER)
+// ❤️ HEALTH CHECK
 //////////////////////////////////////////////////////
 
 app.get("/", (req, res) => {

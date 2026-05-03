@@ -179,7 +179,7 @@ function VideoForm({ faculty }) {
       formData.append("unit", form.unit);
       formData.append("title", form.title);
 
-      const res = await fetch("http://localhost:5000/upload-content", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload-content`, {
         method: "POST",
         body: formData,
       });
@@ -354,7 +354,7 @@ function PDFForm({ faculty }) {
       formData.append("unit", form.unit);
       formData.append("title", form.title);
 
-      const res = await fetch("http://localhost:5000/upload-content", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload-assessment`, {
         method: "POST",
         body: formData,
       });
@@ -514,7 +514,7 @@ function AssessmentForm({ faculty }) {
       formData.append("unit", form.unit);
       formData.append("title", form.title);
 
-      const res = await fetch("http://localhost:5000/upload-assessment", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload-assessment`, {
         method: "POST",
         body: formData,
       });

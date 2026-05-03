@@ -1,7 +1,7 @@
+import { useEffect, useState } from "react";
 import Sidebar from "../../components/layout/Sidebar";
 import Topbar from "../../components/layout/Topbar";
-
-import { useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function StudentPerformance() {
   const [filter, setFilter] = useState({
@@ -9,30 +9,40 @@ export default function StudentPerformance() {
     unit: "",
   });
 
-  // Dummy data (later from DB)
-  const data = [
-    {
-      name: "Ravi Kumar",
-      subject: "Thermodynamics",
-      unit: "Unit 1",
-      score: 8,
-      total: 10,
-    },
-    {
-      name: "Anita Sharma",
-      subject: "Thermodynamics",
-      unit: "Unit 1",
-      score: 5,
-      total: 10,
-    },
-    {
-      name: "Rahul Reddy",
-      subject: "Fluid Mechanics",
-      unit: "Unit 2",
-      score: 9,
-      total: 10,
-    },
-  ];
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    fetchPerformance();
+  }, []);
+
+  const fetchPerformance = async () => {
+    try {
+      const { data: attempts, error } = await supabase
+        .from("student_attempts")
+        .select(`
+          id,
+          score,
+          total,
+          subject,
+          student_id,
+          students(full_name)
+        `);
+
+      if (error) throw error;
+
+      const formatted = attempts.map((item) => ({
+        name: item.students?.full_name?.trim() || "Unknown",
+        subject: item.subject,
+        unit: "Unit", // (you don't have unit in DB yet)
+        score: item.score,
+        total: item.total,
+      }));
+
+      setData(formatted);
+    } catch (err) {
+      console.error("Error fetching performance:", err);
+    }
+  };
 
   const getStatus = (score, total) => {
     const percent = (score / total) * 100;
@@ -41,22 +51,18 @@ export default function StudentPerformance() {
 
   return (
     <div className="flex h-screen bg-[#f6f8fb]">
-
       <Sidebar />
 
       <div className="flex-1 flex flex-col">
         <Topbar />
 
         <div className="p-6">
-
-          {/* HEADER */}
           <h1 className="text-2xl font-semibold text-gray-800 mb-6">
             Student Performance
           </h1>
 
           {/* FILTERS */}
           <div className="bg-white border rounded-xl p-4 mb-6 flex gap-4">
-
             <input
               placeholder="Search subject..."
               className="border px-3 py-2 rounded-lg w-1/3"
@@ -72,13 +78,10 @@ export default function StudentPerformance() {
                 setFilter({ ...filter, unit: e.target.value })
               }
             />
-
           </div>
 
           {/* TABLE */}
           <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-
-            {/* HEADER */}
             <div className="grid grid-cols-5 bg-gray-50 px-5 py-3 text-sm font-semibold text-gray-600">
               <span>Student</span>
               <span>Subject</span>
@@ -87,7 +90,6 @@ export default function StudentPerformance() {
               <span>Status</span>
             </div>
 
-            {/* DATA */}
             {data
               .filter((item) => {
                 return (
@@ -137,9 +139,7 @@ export default function StudentPerformance() {
                   </div>
                 );
               })}
-
           </div>
-
         </div>
       </div>
     </div>

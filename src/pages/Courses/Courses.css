@@ -1,0 +1,24 @@
+.courses-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+  min-height: calc(100vh - 200px);
+}
+
+.courses-page h1 {
+  color: #667eea;
+  margin-bottom: 2rem;
+}
+
+.courses-page ul {
+  list-style: none;
+  padding: 0;
+}
+
+.courses-page li {
+  padding: 1rem;
+  background: #f8f9fa;
+  margin-bottom: 0.5rem;
+  border-left: 4px solid #667eea;
+  border-radius: 4px;
+}

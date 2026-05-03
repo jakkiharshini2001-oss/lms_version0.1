@@ -5,8 +5,6 @@ const fs = require("fs");
 const path = require("path");
 const { google } = require("googleapis");
 const { createClient } = require("@supabase/supabase-js");
-const XLSX = require("xlsx");
-const mammoth = require("mammoth");
 require("dotenv").config();
 
 const app = express();
@@ -35,68 +33,22 @@ const supabase = createClient(
 );
 
 //////////////////////////////////////////////////////
-// 🔐 GOOGLE OAUTH
+// 🔐 GOOGLE DRIVE AUTH (FIXED FOR PRODUCTION)
 //////////////////////////////////////////////////////
 
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = "http://localhost:5000/oauth2callback";
-
 const oauth2Client = new google.auth.OAuth2(
-  CLIENT_ID,
-  CLIENT_SECRET,
-  REDIRECT_URI
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET
 );
 
-const TOKEN_PATH = path.join(__dirname, "token.json");
-let drive = null;
+// ✅ Use refresh token from ENV
+oauth2Client.setCredentials({
+  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+});
 
-function loadSavedToken() {
-  if (fs.existsSync(TOKEN_PATH)) {
-    const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH));
-    oauth2Client.setCredentials(tokens);
-
-    drive = google.drive({
-      version: "v3",
-      auth: oauth2Client,
-    });
-
-    console.log("✅ Google Drive connected (saved token)");
-  }
-}
-
-function authorize() {
-  const authUrl = oauth2Client.generateAuthUrl({
-    access_type: "offline",
-    prompt: "consent",
-    scope: ["https://www.googleapis.com/auth/drive"],
-  });
-
-  console.log("\n🔐 Open this URL:");
-  console.log(authUrl);
-}
-
-app.get("/oauth2callback", async (req, res) => {
-  try {
-    const code = req.query.code;
-
-    const { tokens } = await oauth2Client.getToken(code);
-    fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
-
-    oauth2Client.setCredentials(tokens);
-
-    drive = google.drive({
-      version: "v3",
-      auth: oauth2Client,
-    });
-
-    console.log("✅ Google Drive connected & token saved");
-
-    res.send("Authorization successful! Close this tab.");
-  } catch (err) {
-    console.error("OAuth Error:", err);
-    res.send("Authorization failed");
-  }
+const drive = google.drive({
+  version: "v3",
+  auth: oauth2Client,
 });
 
 //////////////////////////////////////////////////////
@@ -104,8 +56,6 @@ app.get("/oauth2callback", async (req, res) => {
 //////////////////////////////////////////////////////
 
 async function uploadToDrive(file) {
-  if (!drive) throw new Error("Drive not authorized yet");
-
   const response = await drive.files.create({
     requestBody: {
       name: file.originalname,
@@ -131,36 +81,25 @@ async function uploadToDrive(file) {
 }
 
 //////////////////////////////////////////////////////
-// 🔥 GET FACULTY NAME (NEW CORE FIX)
+// 🔥 GET FACULTY NAME
 //////////////////////////////////////////////////////
 
 async function getFacultyName(faculty_id) {
-  console.log("🔍 Looking up faculty name for ID:", faculty_id);
-  
   const { data, error } = await supabase
     .from("faculty")
     .select("name")
     .eq("id", faculty_id)
     .single();
 
-  console.log("📋 Faculty lookup result:", { data, error });
-
-  if (error) {
-    console.error("❌ Faculty lookup error:", error);
-    throw new Error(`Faculty lookup failed: ${error.message}`);
+  if (error || !data?.name) {
+    throw new Error("Faculty name not found");
   }
 
-  if (!data || !data.name) {
-    console.error("❌ Faculty name not found for ID:", faculty_id);
-    throw new Error(`Faculty name is empty for ID: ${faculty_id}`);
-  }
-
-  console.log("✅ Faculty name resolved:", data.name);
   return data.name;
 }
 
 //////////////////////////////////////////////////////
-// 🎯 UPLOAD CONTENT (VIDEO + PDF)
+// 🎯 UPLOAD CONTENT
 //////////////////////////////////////////////////////
 
 app.post("/upload-content", upload.single("file"), async (req, res) => {
@@ -180,73 +119,59 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    // 🔥 GET NAME FROM DB
-    let faculty_name = "";
-    try {
-      faculty_name = await getFacultyName(faculty_id);
-    } catch (err) {
-      console.error("Faculty name resolution failed:", err.message);
-      throw new Error(`Cannot resolve faculty name: ${err.message}`);
-    }
-
-    console.log("📤 Uploading with faculty_name:", faculty_name);
+    const faculty_name = await getFacultyName(faculty_id);
 
     const fileId = await uploadToDrive(req.file);
     fs.unlinkSync(req.file.path);
 
-    //////////////////////////////////////////
     // VIDEO
-    //////////////////////////////////////////
     if (type === "video") {
       const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-      const videoInsert = {
-        faculty_id,
-        faculty_name,
-        department,
-        year,
-        semester,
-        subject,
-        unit,
-        title,
-        file_id: fileId,
-        embed_url: embedUrl,
-      };
-      console.log("📥 Video insert payload:", videoInsert);
 
-      await supabase.from("videos").insert([videoInsert]);
+      await supabase.from("videos").insert([
+        {
+          faculty_id,
+          faculty_name,
+          department,
+          year,
+          semester,
+          subject,
+          unit,
+          title,
+          file_id: fileId,
+          embed_url: embedUrl,
+        },
+      ]);
 
       return res.json({ success: true, embedUrl });
     }
 
-    //////////////////////////////////////////
     // PDF
-    //////////////////////////////////////////
     if (type === "pdf") {
       const fileUrl = `https://drive.google.com/uc?id=${fileId}`;
-      const pdfInsert = {
-        faculty_id,
-        faculty_name,
-        department,
-        year,
-        semester,
-        subject,
-        unit,
-        title,
-        file_id: fileId,
-        file_url: fileUrl,
-      };
-      console.log("📥 PDF insert payload:", pdfInsert);
 
-      await supabase.from("pdfs").insert([pdfInsert]);
+      await supabase.from("pdfs").insert([
+        {
+          faculty_id,
+          faculty_name,
+          department,
+          year,
+          semester,
+          subject,
+          unit,
+          title,
+          file_id: fileId,
+          file_url: fileUrl,
+        },
+      ]);
 
       return res.json({ success: true, fileUrl });
     }
 
     return res.status(400).json({ error: "Invalid type" });
-
   } catch (error) {
     console.error("Upload Error:", error.message);
-    return res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -270,42 +195,29 @@ app.post("/upload-assessment", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    let faculty_name = "";
-    try {
-      faculty_name = await getFacultyName(faculty_id);
-    } catch (err) {
-      console.error("Faculty name resolution failed:", err.message);
-      throw new Error(`Cannot resolve faculty name: ${err.message}`);
-    }
-
-    console.log("📤 Uploading assessment with faculty_name:", faculty_name);
+    const faculty_name = await getFacultyName(faculty_id);
 
     const fileId = await uploadToDrive(req.file);
     fs.unlinkSync(req.file.path);
 
-    const assessmentInsert = {
-      faculty_id,
-      faculty_name,
-      department,
-      year,
-      semester,
-      subject,
-      unit,
-      title,
-      file_id: fileId,
-    };
-    console.log("📥 Assessment insert payload:", assessmentInsert);
+    await supabase.from("assessments").insert([
+      {
+        faculty_id,
+        faculty_name,
+        department,
+        year,
+        semester,
+        subject,
+        unit,
+        title,
+        file_id: fileId,
+      },
+    ]);
 
-    await supabase.from("assessments").insert([assessmentInsert]);
-
-    return res.json({
-      success: true,
-      message: "Assessment uploaded successfully",
-    });
-
+    res.json({ success: true });
   } catch (error) {
     console.error("Assessment Error:", error.message);
-    return res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -353,6 +265,14 @@ app.delete("/delete-content/:type/:id", async (req, res) => {
 });
 
 //////////////////////////////////////////////////////
+// ❤️ HEALTH CHECK (IMPORTANT FOR RENDER)
+//////////////////////////////////////////////////////
+
+app.get("/", (req, res) => {
+  res.send("Backend running 🚀");
+});
+
+//////////////////////////////////////////////////////
 // 🚀 START SERVER
 //////////////////////////////////////////////////////
 
@@ -360,10 +280,4 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-
-  loadSavedToken();
-
-  if (!drive) {
-    authorize();
-  }
 });

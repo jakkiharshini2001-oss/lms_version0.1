@@ -16,37 +16,70 @@ export default function StudentPerformance() {
   }, []);
 
   const fetchPerformance = async () => {
-    try {
-      const { data: attempts, error } = await supabase
-        .from("student_attempts")
-        .select(`
-          id,
-          score,
-          total,
-          subject,
-          student_id,
-          students(full_name)
-        `);
+  try {
+    // 1. Get logged-in faculty
+    const { data: authData } = await supabase.auth.getUser();
+    const facultyId = authData?.user?.id;
 
-      if (error) throw error;
+    if (!facultyId) return;
 
-      const formatted = attempts.map((item) => ({
-        name: item.students?.full_name?.trim() || "Unknown",
-        subject: item.subject,
-        unit: "Unit", // (you don't have unit in DB yet)
+    // 2. Get assessments created by this faculty
+    const { data: assessments, error: aError } = await supabase
+      .from("assessments")
+      .select("id, subject, unit, department, year, semester")
+      .eq("faculty_id", facultyId);
+
+    if (aError) throw aError;
+
+    const assessmentIds = assessments.map((a) => a.id);
+
+    if (assessmentIds.length === 0) {
+      setData([]);
+      return;
+    }
+
+    // 3. Get attempts for those assessments
+    const { data: attempts, error } = await supabase
+      .from("student_attempts")
+      .select(`
+        id,
+        score,
+        total,
+        student_id,
+        assessment_id,
+        students(full_name, department, year, semester)
+      `)
+      .in("assessment_id", assessmentIds);
+
+    if (error) throw error;
+
+    // 4. Merge assessment data
+    const formatted = attempts.map((item) => {
+      const assessment = assessments.find(
+        (a) => a.id === item.assessment_id
+      );
+
+      return {
+        name: item.students?.full_name || "Unknown",
+        subject: assessment?.subject || "N/A",
+        unit: assessment?.unit || "N/A",
+        department: assessment?.department,
+        year: assessment?.year,
+        semester: assessment?.semester,
         score: item.score,
         total: item.total,
-      }));
+      };
+    });
 
-      setData(formatted);
-    } catch (err) {
-      console.error("Error fetching performance:", err);
-    }
-  };
+    setData(formatted);
 
+  } catch (err) {
+    console.error("Error fetching performance:", err);
+  }
+};
   const getStatus = (score, total) => {
     const percent = (score / total) * 100;
-    return percent >= 50 ? "Pass" : "Retry";
+    return percent >= 50 ? "Pass" : "fail";
   };
 
   return (

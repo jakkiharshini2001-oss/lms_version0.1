@@ -120,7 +120,7 @@ export default function ContentUpload() {
           <div className="bg-white rounded-xl shadow-sm border p-6 max-w-4xl">
             {activeTab === "video" && <VideoForm faculty={faculty} />}
             {activeTab === "pdf" && <PDFForm faculty={faculty} />}
-            {activeTab === "assessment" && <AssessmentForm />}
+            {activeTab === "assessment" && <AssessmentForm faculty={faculty} />}
           </div>
         </div>
       </div>
@@ -179,10 +179,12 @@ function VideoForm({ faculty }) {
       formData.append("unit", form.unit);
       formData.append("title", form.title);
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload-content`, {
-        method: "POST",
-        body: formData,
-      });
+      const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/$/, "");
+
+const res = await fetch(`${BASE_URL}/upload-content`, {
+  method: "POST",
+  body: formData,
+});
 
       const data = await res.json();
 
@@ -354,10 +356,12 @@ function PDFForm({ faculty }) {
       formData.append("unit", form.unit);
       formData.append("title", form.title);
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload-content`, {
-        method: "POST",
-        body: formData,
-      });
+ const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/$/, "");
+
+const res = await fetch(`${BASE_URL}/upload-content`, {
+  method: "POST",
+  body: formData,
+});
 
       const data = await res.json();
 
@@ -514,10 +518,12 @@ function AssessmentForm({ faculty }) {
       formData.append("unit", form.unit);
       formData.append("title", form.title);
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload-assessment`, {
-        method: "POST",
-        body: formData,
-      });
+    const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/$/, "");
+
+const res = await fetch(`${BASE_URL}/upload-assessment`, {
+  method: "POST",
+  body: formData,
+});
 
       const data = await res.json();
 

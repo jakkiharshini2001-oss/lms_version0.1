@@ -1,13 +1,37 @@
 import { useState, useRef, useEffect } from "react";
 import { Search, Bell, Plus, ChevronDown, User, HelpCircle, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function Topbar() {
     const navigate = useNavigate();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    // Close dropdown when clicking outside
+    const [faculty, setFaculty] = useState(null);
+
+    // 🔹 Fetch logged-in faculty
+    useEffect(() => {
+        const fetchFaculty = async () => {
+            const { data: userData } = await supabase.auth.getUser();
+
+            if (userData?.user) {
+                const { data, error } = await supabase
+                    .from("faculty") // 👈 make sure table name matches
+                    .select("*")
+                    .eq("id", userData.user.id)
+                    .single();
+
+                if (!error) {
+                    setFaculty(data);
+                }
+            }
+        };
+
+        fetchFaculty();
+    }, []);
+
+    // Close dropdown
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -34,10 +58,9 @@ export default function Topbar() {
             {/* RIGHT SIDE */}
             <div className="flex items-center gap-4">
 
-                {/* ✅ UPLOAD BUTTON (CONNECTED) */}
                 <button
                     onClick={() => navigate("/faculty/upload")}
-                    className="flex items-center gap-2 bg-[#123a78] text-white px-4 py-2 rounded-lg hover:bg-[#0f2f63] transition"
+                    className="flex items-center gap-2 bg-[#123a78] text-white px-4 py-2 rounded-lg"
                 >
                     <Plus size={16} />
                     Upload Lecture
@@ -54,60 +77,44 @@ export default function Topbar() {
                 {/* PROFILE */}
                 <div className="relative" ref={dropdownRef}>
                     <div 
-                        className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-lg transition"
+                        className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-lg"
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
                     >
                         <div className="w-9 h-9 bg-[#123a78] text-white flex items-center justify-center rounded-full">
-                            F
+                            {faculty?.full_name?.[0] || "F"}
                         </div>
+
                         <div className="text-sm">
-                            <p className="font-semibold">Faculty</p>
-                            <p className="text-gray-500 text-xs">Mechanical</p>
+                            <p className="font-semibold">
+                                {faculty?.name || "Loading..."}
+                            </p>
+                            <p className="text-gray-500 text-xs">
+                                {faculty?.department || ""}
+                            </p>
                         </div>
-                        <ChevronDown size={14} className={`text-gray-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
+
+                        <ChevronDown size={14} />
                     </div>
 
-                    {/* DROPDOWN MENU */}
+                    {/* DROPDOWN */}
                     {isProfileOpen && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white border rounded-xl shadow-lg overflow-hidden py-1 z-50">
-                            <button 
-                                onClick={() => {
-                                    setIsProfileOpen(false);
-                                    navigate("/faculty/profile");
-                                }} 
-                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
-                            >
-                                <User size={16} className="text-gray-400" />
+                        <div className="absolute right-0 mt-2 w-48 bg-white border rounded-xl shadow-lg">
+                            <button onClick={() => navigate("/faculty/profile")} className="w-full px-4 py-2 text-left">
                                 Profile Settings
                             </button>
-                            
-                            <button 
-                                onClick={() => {
-                                    setIsProfileOpen(false);
-                                    navigate("/faculty/help");
-                                }} 
-                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
-                            >
-                                <HelpCircle size={16} className="text-gray-400" />
-                                Help
-                            </button>
-                            
-                            <div className="border-t border-gray-100 my-1"></div>
-                            
-                            <button 
-                                onClick={() => {
-                                    setIsProfileOpen(false);
+
+                            <button
+                                onClick={async () => {
+                                    await supabase.auth.signOut();
                                     navigate("/faculty/login");
-                                }} 
-                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition font-medium"
+                                }}
+                                className="w-full px-4 py-2 text-left text-red-600"
                             >
-                                <LogOut size={16} />
                                 Logout
                             </button>
                         </div>
                     )}
                 </div>
-
             </div>
         </div>
     );

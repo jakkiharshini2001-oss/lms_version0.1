@@ -73,14 +73,48 @@ const HomePage = () => {
   const navigate = useNavigate();
   const toggleFaq = (i) => setFaqOpen(faqOpen === i ? null : i);
 
-  const faqs = [
-    { question: 'How does Lerno work for students?', answer: 'Lerno provides an intuitive interface where students can access courses, submit assignments, track their grades, and communicate with instructors in real-time.' },
-    { question: 'Can I become an educator and sell my own courses?', answer: 'Yes! Faculty members can create auto-graded MCQ quizzes, upload lectures, track student progress, and receive detailed analytics on engagement and outcomes.' },
-    { question: 'What payment methods are supported?', answer: 'We support credit/debit cards, net banking, UPI, and institutional payment methods for universities.' },
-    { question: 'Do I get a certificate after finishing a course?', answer: 'Yes — upon completing a course, students receive a verified digital certificate that can be shared on LinkedIn and other professional platforms.' },
-    { question: 'Can I watch courses offline?', answer: 'Students can download course content for offline access on mobile devices, ensuring uninterrupted learning even without an internet connection.' },
-    { question: 'Is there a refund policy?', answer: 'We offer a 30-day money-back guarantee for all courses purchased through the platform, no questions asked.' },
-  ];
+const faqs = [
+  {
+    question: "What is the purpose of the Osmania University LMS?",
+    answer:
+      "The LMS is designed to provide one digital platform where faculty can upload lecture videos, assessments, and academic materials, while students can access learning resources anytime from one place.",
+  },
+  {
+    question: "Who can use this LMS platform?",
+    answer:
+      "The platform is mainly built for Osmania University faculty and students. Faculty can manage academic content, and students can view subject-wise materials, videos, lecture notes, and assessments.",
+  },
+  {
+    question: "How can faculty upload course content?",
+    answer:
+      "Faculty members can log in to the faculty dashboard and upload videos, lecture notes, and assessment files by selecting year, semester, subject, unit, and title.",
+  },
+  {
+    question: "Is semester selection required for all years?",
+    answer:
+      "No. For 1st year, subjects are shown directly without semester selection. From 2nd year to 4th year, content is organized semester-wise.",
+  },
+  {
+    question: "How is content organized in the LMS?",
+    answer:
+      "Content is organized in a structured format: Year, Semester, Subject, Unit, and then Videos, Lecture Notes, and Assessments. This helps students find materials easily.",
+  },
+  {
+    question: "Can faculty preview uploaded PDFs and assessments?",
+    answer:
+      "Yes. Faculty can preview PDF lecture notes directly inside the LMS. Assessment files such as Excel sheets can also be previewed in a table format.",
+  },
+  {
+    question: "Can faculty delete uploaded content?",
+    answer:
+      "Yes. Faculty can delete uploaded videos, PDFs, and assessments from the subject details page. Once deleted, the content is removed from the LMS records.",
+  },
+  {
+    question: "Can students access materials anytime?",
+    answer:
+      "Yes. The LMS is planned to provide 24/7 access to lecture videos, PDFs, and assessments so students can revise and learn at their own pace.",
+  },
+];
 
 const courseCards = [
   { src: oueng, title: 'Hardware Acceleration for machine...', meta: 'Prof. P Chandra Sekhar · 26 lessons' },

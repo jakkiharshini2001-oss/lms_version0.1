@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Search, Bell, Plus, ChevronDown, User, HelpCircle, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
+import oulogo from "../../assets/images/Eng_college_log.png";
 
 export default function Topbar() {
     const navigate = useNavigate();
@@ -58,14 +59,6 @@ export default function Topbar() {
             {/* RIGHT SIDE */}
             <div className="flex items-center gap-4">
 
-                <button
-                    onClick={() => navigate("/faculty/upload")}
-                    className="flex items-center gap-2 bg-[#123a78] text-white px-4 py-2 rounded-lg"
-                >
-                    <Plus size={16} />
-                    Upload Lecture
-                </button>
-
                 {/* NOTIFICATION */}
                 <div className="relative cursor-pointer">
                     <Bell size={20} className="text-gray-600" />
@@ -80,10 +73,7 @@ export default function Topbar() {
                         className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-lg"
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
                     >
-                        <div className="w-9 h-9 bg-[#123a78] text-white flex items-center justify-center rounded-full">
-                            {faculty?.full_name?.[0] || "F"}
-                        </div>
-
+                        <img src={oulogo} alt="OU Logo" className="w-9 h-9 rounded-full" />
                         <div className="text-sm">
                             <p className="font-semibold">
                                 {faculty?.name || "Loading..."}

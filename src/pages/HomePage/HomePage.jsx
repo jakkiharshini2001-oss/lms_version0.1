@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-
+import viceChancellorImg from "../../assets/images/vice-chancellor.png";
+import principalImg from "../../assets/images/principal_1.png";
+import oueng from "../../assets/images/OU_eng.png";
+import oulogo from "../../assets/images/Eng_college_log.png";
 /* ─── Scroll-Reveal Hook ─── */
 function useReveal(threshold = 0.12) {
   const ref = useRef(null);
@@ -79,48 +82,62 @@ const HomePage = () => {
     { question: 'Is there a refund policy?', answer: 'We offer a 30-day money-back guarantee for all courses purchased through the platform, no questions asked.' },
   ];
 
-  const courseCards = [
-    { src: '/ou_campus.png', title: 'Hardware Acceleration for machine...', meta: 'Prof. P Chandra Sekhar · 26 lessons' },
-    { src: '/student_learning.png', title: 'Geographic information system', meta: 'Prof. M Gopal Naik · 25 lessons' },
-    { src: '/vice_chancellor.png', title: 'Subsidence due to underground mining', meta: 'Dr. K V Shanker · 28 lessons' },
-    { src: '/principal.png', title: 'Surface hardening process', meta: 'Dr. T Nagaveni · 38 lessons' },
-  ];
-
+const courseCards = [
+  { src: oueng, title: 'Hardware Acceleration for machine...', meta: 'Prof. P Chandra Sekhar · 26 lessons' },
+  { src: '/student_learning.png', title: 'Geographic information system', meta: 'Prof. M Gopal Naik · 25 lessons' },
+  { src: viceChancellorImg, title: 'Subsidence due to underground mining', meta: 'Dr. K V Shanker · 28 lessons' },
+  { src: principalImg, title: 'Surface hardening process', meta: 'Dr. T Nagaveni · 38 lessons' },
+];
   return (
     <div className="bg-white text-gray-900">
 
       {/* ══════════ NAVBAR ══════════ */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
-        <div className="max-w-screen-xl mx-auto px-8 h-[60px] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z" />
-              </svg>
-            </div>
-            <span className="font-bold text-gray-900 text-lg">Lerno</span>
-          </div>
+   <nav className="fixed top-0 left-0 right-0 z-[9999] bg-white border-b border-gray-100 shadow-sm">
+  <div className="max-w-screen-xl mx-auto px-8 h-[80px] flex items-center justify-between">
 
-          <div className="hidden md:flex items-center bg-gray-50 border border-gray-200 rounded-full px-1.5 py-1 gap-0.5">
-            <a href="#" className="px-4 py-1.5 rounded-full bg-white text-gray-900 text-sm font-medium shadow-sm border border-gray-200">Home</a>
-            <a href="#" className="px-4 py-1.5 rounded-full text-gray-500 text-sm hover:text-gray-800 transition-colors">Courses</a>
-            <a href="#" className="px-4 py-1.5 rounded-full text-gray-500 text-sm hover:text-gray-800 transition-colors">Dashboard</a>
-          </div>
+    {/* Logo */}
+    <div className="flex items-center gap-3">
+      <img src={oulogo} alt="OU Logo" className="w-11 h-11 rounded-lg" />
 
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/faculty/login')} className="hidden md:flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-              </svg>
-              Sign In
-            </button>
-            <button onClick={() => navigate('/faculty/signup')} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-xl transition-colors">
-              Get started
-            </button>
-          </div>
-        </div>
-      </nav>
+      <span className="text-3xl font-bold text-gray-900">
+        LMS
+      </span>
+    </div>
 
+    {/* Center Nav */}
+    <div className="hidden md:flex items-center gap-10">
+      <a href="#" className="text-gray-700 font-medium hover:text-blue-600 transition-colors">
+        Home
+      </a>
+
+      <a href="#" className="text-gray-700 font-medium hover:text-blue-600 transition-colors">
+        Courses
+      </a>
+
+      <a href="#" className="text-gray-700 font-medium hover:text-blue-600 transition-colors">
+        FAQ
+      </a>
+    </div>
+
+    {/* Buttons */}
+    <div className="flex items-center gap-4">
+      <button
+        onClick={() => navigate('/faculty/login')}
+        className="px-6 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition"
+      >
+        Sign in
+      </button>
+
+      <button
+        onClick={() => navigate('/faculty/signup')}
+        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition"
+      >
+        Get started
+      </button>
+    </div>
+
+  </div>
+</nav>
       {/* ══════════ HERO ══════════ */}
       <section className="pt-[60px] bg-white">
         <div className="max-w-screen-xl mx-auto px-8 py-20 flex flex-col lg:flex-row items-center gap-16">
@@ -171,7 +188,7 @@ const HomePage = () => {
           <Reveal direction="right" delay={150} className="flex-1 w-full max-w-[700px]">
             <div className="relative">
               <div className="rounded-3xl overflow-hidden shadow-2xl shadow-gray-200">
-                <img src="/ou_campus.png" alt="Osmania University Campus" className="w-full h-[430px] object-cover" />
+                <img src={oueng} alt="Osmania University Campus" className="w-full h-[430px] object-cover" />
               </div>
               <div className="absolute -bottom-6 left-8 bg-white rounded-2xl shadow-xl shadow-gray-200 px-5 py-3.5 flex items-center gap-3 border border-gray-100">
                 <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -246,8 +263,8 @@ const HomePage = () => {
               {courseCards.map((card, i) => (
                 <Reveal key={i} direction="up" delay={i * 80}>
                   <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-                    <div className="h-40 overflow-hidden bg-gray-100">
-                      <img src={card.src} alt={card.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <div className="h-56 overflow-hidden bg-gray-100 flex items-center justify-center">
+                      <img src={card.src} alt={card.title} className="w-full h-full object-contain object-center group-hover:scale-105 transition-transform duration-500" />
                     </div>
                     <div className="p-4">
                       <p className="text-sm font-semibold text-gray-900 leading-snug mb-1.5">{card.title}</p>
@@ -279,9 +296,12 @@ const HomePage = () => {
           {/* Vice Chancellor */}
           <div className="flex flex-col lg:flex-row items-center gap-14 mb-24">
             <Reveal direction="left" delay={80} className="lg:w-[55%]">
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-blue-100/50">
-                <img src="/vice_chancellor.png" alt="Vice-Chancellor" className="w-full h-[420px] object-cover" />
-                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow">
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-blue-100/50 bg-gray-50 flex items-center justify-center min-h-[520px]">
+                <img
+                  src={viceChancellorImg}
+                  alt="Vice-Chancellor"
+                  className="w-full h-auto max-h-[520px] object-contain"
+                />                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow">
                   <span className="w-2 h-2 bg-green-500 rounded-full" />
                   <span className="text-xs font-semibold text-gray-700">+38% completion</span>
                 </div>
@@ -315,9 +335,12 @@ const HomePage = () => {
           {/* Principal */}
           <div className="flex flex-col lg:flex-row-reverse items-center gap-14">
             <Reveal direction="right" delay={80} className="lg:w-[55%]">
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-gray-200/60">
-                <img src="/principal.png" alt="Principal" className="w-full h-[420px] object-cover" />
-                <div className="absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-sm px-5 py-4 flex items-center justify-between">
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-gray-200/60 bg-gray-50 flex items-center justify-center min-h-[520px]">
+                <img
+                  src={principalImg}
+                  alt="Principal"
+                  className="w-full h-auto max-h-[520px] object-contain"
+                />                <div className="absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-sm px-5 py-4 flex items-center justify-between">
                   <span className="text-white text-sm font-medium">Message from the Principal</span>
                   <svg className="w-4 h-4 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

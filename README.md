@@ -1,4 +1,4 @@
-# Luma - Osmania University LMS Portal
+# LMS - Osmania University LMS Portal
 
 A comprehensive Learning Management System (LMS) portal for Osmania University built with React and Vite.
 

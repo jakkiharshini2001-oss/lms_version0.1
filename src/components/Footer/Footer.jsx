@@ -7,7 +7,7 @@ const Footer = () => {
       <div className="footer-container">
         <div className="footer-grid">
           <div className="footer-section">
-            <h4>Luma</h4>
+            <h4>LMS</h4>
             <p className="footer-description">The premier learning management system for Osmania University, empowering educators and students to succeed.</p>
           </div>
           
@@ -43,7 +43,7 @@ const Footer = () => {
         </div>
 
         <div className="footer-bottom">
-          <p>&copy; 2024 Luma - Osmania University. All rights reserved.</p>
+          <p>&copy; 2024 LMS - Osmania University. All rights reserved.</p>
           <div className="footer-legal">
             <a href="#privacy">Privacy Policy</a>
             <a href="#terms">Terms of Service</a>

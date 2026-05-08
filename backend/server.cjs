@@ -235,6 +235,69 @@ app.post("/upload-assessment", upload.single("file"), async (req, res) => {
 });
 
 //////////////////////////////////////////////////////
+// 🔐 RESET PASSWORD (DUMMY EMAIL SUPPORT)
+//////////////////////////////////////////////////////
+
+app.post("/reset-password", async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return res.status(400).json({
+        error: "Email and new password required",
+      });
+    }
+
+    //////////////////////////////////////////////////////
+    // FIND USER
+    //////////////////////////////////////////////////////
+
+    const {
+      data: { users },
+      error: listError,
+    } = await supabase.auth.admin.listUsers();
+
+    if (listError) {
+      throw listError;
+    }
+
+    const user = users.find(
+      (u) => u.email.toLowerCase() === email.toLowerCase()
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        error: "Faculty account not found",
+      });
+    }
+
+    //////////////////////////////////////////////////////
+    // UPDATE PASSWORD
+    //////////////////////////////////////////////////////
+
+    const { error: updateError } =
+      await supabase.auth.admin.updateUserById(user.id, {
+        password: newPassword,
+      });
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return res.json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (err) {
+    console.error("RESET PASSWORD ERROR:", err);
+
+    return res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
+//////////////////////////////////////////////////////
 // ❤️ HEALTH CHECK
 //////////////////////////////////////////////////////
 

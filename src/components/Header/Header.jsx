@@ -1,6 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom'; // ✅ ADD THIS
 import '../Header/Header.css';
+import oulogo from "../../assets/images/Eng_college_log.png";
+
 
 const Header = () => {
   const navigate = useNavigate(); // ✅ ADD THIS
@@ -9,8 +11,8 @@ const Header = () => {
     <header className="header">
       <div className="header-container">
         <div className="logo-section">
-          <div className="logo-icon">OU</div>
-          <h1 className="site-title">Luma</h1>
+          <img src={oulogo} alt="OU Logo" className="logo-icon" />
+          <h1 className="site-title">LMS</h1>
         </div>
         
         <nav className="nav-links">

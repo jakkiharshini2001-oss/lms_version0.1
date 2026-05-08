@@ -2,7 +2,7 @@
 
 ## ✅ Project Setup Complete!
 
-Your Luma LMS portal for Osmania University has been successfully created with React + Vite.
+Your LMS LMS portal for Osmania University has been successfully created with React + Vite.
 
 ### 🚀 Running the Project
 

@@ -117,11 +117,63 @@ export default function ContentUpload() {
             ))}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border p-6 max-w-4xl">
-            {activeTab === "video" && <VideoForm faculty={faculty} />}
-            {activeTab === "pdf" && <PDFForm faculty={faculty} />}
-            {activeTab === "assessment" && <AssessmentForm faculty={faculty} />}
-          </div>
+         <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6 h-[calc(100vh-190px)] overflow-hidden">
+  {/* LEFT FORM */}
+  <div className="bg-white rounded-2xl shadow-sm border p-6 overflow-hidden">
+    {activeTab === "video" && <VideoForm faculty={faculty} />}
+    {activeTab === "pdf" && <PDFForm faculty={faculty} />}
+    {activeTab === "assessment" && <AssessmentForm faculty={faculty} />}
+  </div>
+
+  {/* RIGHT SIDE IMAGE PANEL */}
+  <div className="hidden xl:block relative overflow-hidden rounded-2xl shadow-sm border h-full">
+    <img
+      src="https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=1200&auto=format&fit=crop"
+      alt="Osmania University"
+      className="absolute inset-0 w-full h-full object-cover object-top"
+    />
+
+    <div className="absolute inset-0 bg-gradient-to-b from-[#06254D]/20 via-[#06254D]/45 to-[#06254D]/95" />
+
+    <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
+      <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-3xl mb-5">
+        🎓
+      </div>
+
+      <h2 className="text-3xl font-bold leading-tight mb-3">
+        Osmania University
+      </h2>
+
+      <p className="text-blue-100 text-sm leading-relaxed mb-6">
+        Upload lecture videos, academic PDFs and assessments for students
+        through the LMS faculty workspace.
+      </p>
+
+      <div className="space-y-3">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10">
+          <h3 className="font-semibold mb-1">📚 Lecture Notes</h3>
+          <p className="text-xs text-blue-100">
+            Organize unit-wise lecture materials.
+          </p>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10">
+          <h3 className="font-semibold mb-1">🎥 Video Classes</h3>
+          <p className="text-xs text-blue-100">
+            Upload engaging academic video content.
+          </p>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10">
+          <h3 className="font-semibold mb-1">📝 Assessments</h3>
+          <p className="text-xs text-blue-100">
+            Share tests, assignments and evaluations.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
         </div>
       </div>
     </div>

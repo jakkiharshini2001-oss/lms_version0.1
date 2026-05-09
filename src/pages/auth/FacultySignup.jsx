@@ -157,13 +157,20 @@ export default function FacultySignup() {
         <div className="sticky top-0 z-20 bg-[#fdfcfb]/95 backdrop-blur-sm border-b border-slate-100 px-6 sm:px-12 py-6">
           <div className="flex items-center justify-between max-w-[520px]">
             <div className="flex items-center gap-3">
-              <img
-                src={oulogo}
-                alt="OU Logo"
-                className="w-11 h-11 rounded-lg"
-              />
+              <button
+                             type="button"
+                             onClick={() => navigate("/")}
+                             className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                           >
+                             <img
+                               src={oulogo}
+                               alt="OU Logo"
+                               className="w-12 h-12 rounded-lg"
+                             />
+                             
+                           </button>
               <div>
-                <p className="text-[10px] uppercase tracking-[0.28em] text-slate-500 mb-0.5">
+                <p className="text-[10px] uppercase tracking-[0.28em] text-slate-900 mb-0.15 font-semibold">
                   LMS · Osmania University
                 </p>
                 <p className="text-sm font-semibold text-slate-900">

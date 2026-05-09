@@ -7,15 +7,9 @@ const { google } = require("googleapis");
 const { createClient } = require("@supabase/supabase-js");
 require("dotenv").config();
 
-console.log("=== SERVER STARTUP ===");
-console.log("REFRESH TOKEN present:", !!process.env.GOOGLE_REFRESH_TOKEN);
-console.log("CLIENT ID present:", !!process.env.GOOGLE_CLIENT_ID);
-console.log("CLIENT SECRET present:", !!process.env.GOOGLE_CLIENT_SECRET);
-console.log("DRIVE FOLDER ID present:", !!process.env.GOOGLE_DRIVE_FOLDER_ID);
-console.log("SUPABASE URL present:", !!process.env.SUPABASE_URL);
-console.log("SUPABASE SERVICE KEY present:", !!process.env.SUPABASE_SERVICE_KEY);
-
 const app = express();
+
+console.log("=== SERVER STARTUP ===");
 
 app.use(cors());
 app.use(express.json());
@@ -43,7 +37,7 @@ const supabase = createClient(
 );
 
 //////////////////////////////////////////////////////
-// 🔐 GOOGLE DRIVE AUTH
+// 🔐 GOOGLE AUTH (FIXED)
 //////////////////////////////////////////////////////
 
 const oauth2Client = new google.auth.OAuth2(
@@ -51,6 +45,7 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_SECRET
 );
 
+// IMPORTANT: refresh token setup
 oauth2Client.setCredentials({
   refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
 });
@@ -61,16 +56,19 @@ const drive = google.drive({
 });
 
 //////////////////////////////////////////////////////
-// 🚀 GOOGLE DRIVE UPLOAD
+// 🚀 FIXED DRIVE UPLOAD (IMPORTANT PART)
 //////////////////////////////////////////////////////
 
 async function uploadToDrive(file) {
   try {
-    console.log("uploadToDrive: starting for file:", file.originalname);
+    console.log("Uploading to Drive:", file.originalname);
 
-    // Test token refresh before uploading
-    const tokenResponse = await oauth2Client.getAccessToken();
-    console.log("uploadToDrive: access token obtained:", !!tokenResponse.token);
+    // 🔥 FORCE TOKEN REFRESH (CRITICAL FIX)
+    const accessToken = await oauth2Client.getAccessToken();
+
+    if (!accessToken || !accessToken.token) {
+      throw new Error("Failed to get Google Access Token (invalid refresh token)");
+    }
 
     const response = await drive.files.create({
       requestBody: {
@@ -84,7 +82,6 @@ async function uploadToDrive(file) {
     });
 
     const fileId = response.data.id;
-    console.log("uploadToDrive: file created with ID:", fileId);
 
     await drive.permissions.create({
       fileId,
@@ -94,44 +91,30 @@ async function uploadToDrive(file) {
       },
     });
 
-    console.log("uploadToDrive: permissions set for fileId:", fileId);
+    console.log("Drive upload success:", fileId);
     return fileId;
 
   } catch (err) {
-    console.error("uploadToDrive ERROR:", err.message);
-    console.error("uploadToDrive ERROR code:", err.code);
-    console.error("uploadToDrive ERROR status:", err.status);
-    if (err.response?.data) {
-      console.error("uploadToDrive ERROR response data:", JSON.stringify(err.response.data));
-    }
+    console.error("🔥 GOOGLE DRIVE ERROR:", err.response?.data || err.message);
     throw err;
   }
 }
 
 //////////////////////////////////////////////////////
-// 🔥 GET FACULTY NAME
+// 🔥 GET FACULTY
 //////////////////////////////////////////////////////
 
 async function getFacultyName(faculty_id) {
-  console.log("getFacultyName: looking up faculty_id:", faculty_id);
-
   const { data, error } = await supabase
     .from("faculty")
     .select("name")
     .eq("id", faculty_id)
     .single();
 
-  if (error) {
-    console.error("getFacultyName ERROR:", error.message, "code:", error.code);
-    throw new Error("Faculty name not found: " + error.message);
+  if (error || !data?.name) {
+    throw new Error("Faculty not found");
   }
 
-  if (!data?.name) {
-    console.error("getFacultyName: no name found for faculty_id:", faculty_id);
-    throw new Error("Faculty name is empty for id: " + faculty_id);
-  }
-
-  console.log("getFacultyName: found name:", data.name);
   return data.name;
 }
 
@@ -140,11 +123,9 @@ async function getFacultyName(faculty_id) {
 //////////////////////////////////////////////////////
 
 app.post("/upload-content", upload.single("file"), async (req, res) => {
-  console.log("\n=== /upload-content HIT ===");
-  console.log("Body:", req.body);
-  console.log("File:", req.file ? { name: req.file.originalname, size: req.file.size, mimetype: req.file.mimetype } : "NO FILE");
-
   try {
+    console.log("UPLOAD HIT");
+
     const {
       faculty_id,
       type,
@@ -156,52 +137,17 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
       title,
     } = req.body;
 
-    if (!req.file) {
-      console.error("upload-content: no file in request");
-      return res.status(400).json({ error: "No file uploaded" });
-    }
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-    if (!faculty_id) {
-      console.error("upload-content: missing faculty_id");
-      return res.status(400).json({ error: "faculty_id is required" });
-    }
+    const faculty_name = await getFacultyName(faculty_id);
+    const fileId = await uploadToDrive(req.file);
 
-    if (!type) {
-      console.error("upload-content: missing type");
-      return res.status(400).json({ error: "type is required" });
-    }
-
-    let faculty_name;
-    try {
-      faculty_name = await getFacultyName(faculty_id);
-    } catch (err) {
-      // Clean up temp file
-      if (req.file?.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return res.status(500).json({ error: "Faculty lookup failed: " + err.message });
-    }
-
-    let fileId;
-    try {
-      fileId = await uploadToDrive(req.file);
-    } catch (err) {
-      // Clean up temp file
-      if (req.file?.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return res.status(500).json({ error: "Google Drive upload failed: " + err.message });
-    }
-
-    // Clean up temp file after successful upload
-    if (req.file?.path && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
+    fs.unlinkSync(req.file.path);
 
     if (type === "video") {
       const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
 
-      const { error: dbError } = await supabase.from("videos").insert([{
+      await supabase.from("videos").insert([{
         faculty_id,
         faculty_name,
         department,
@@ -214,19 +160,13 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
         embed_url: embedUrl,
       }]);
 
-      if (dbError) {
-        console.error("upload-content: videos insert error:", dbError.message);
-        return res.status(500).json({ error: "Database insert failed: " + dbError.message });
-      }
-
-      console.log("upload-content: video inserted successfully");
       return res.json({ success: true, embedUrl });
     }
 
     if (type === "pdf") {
       const fileUrl = `https://drive.google.com/uc?id=${fileId}`;
 
-      const { error: dbError } = await supabase.from("pdfs").insert([{
+      await supabase.from("pdfs").insert([{
         faculty_id,
         faculty_name,
         department,
@@ -239,39 +179,22 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
         file_url: fileUrl,
       }]);
 
-      if (dbError) {
-        console.error("upload-content: pdfs insert error:", dbError.message);
-        return res.status(500).json({ error: "Database insert failed: " + dbError.message });
-      }
-
-      console.log("upload-content: pdf inserted successfully");
       return res.json({ success: true, fileUrl });
     }
 
-    return res.status(400).json({ error: "Invalid type: " + type });
+    return res.status(400).json({ error: "Invalid type" });
 
   } catch (error) {
-    console.error("upload-content UNHANDLED ERROR:", error.message);
-    console.error("Stack:", error.stack);
-
-    // Clean up temp file if still exists
-    if (req.file?.path && fs.existsSync(req.file.path)) {
-      try { fs.unlinkSync(req.file.path); } catch (_) {}
-    }
-
-    return res.status(500).json({ error: error.message || "Unknown server error" });
+    console.error("UPLOAD ERROR:", error.message);
+    return res.status(500).json({ error: error.message });
   }
 });
 
 //////////////////////////////////////////////////////
-// 📊 ASSESSMENT UPLOAD
+// 📊 ASSESSMENT
 //////////////////////////////////////////////////////
 
 app.post("/upload-assessment", upload.single("file"), async (req, res) => {
-  console.log("\n=== /upload-assessment HIT ===");
-  console.log("Body:", req.body);
-  console.log("File:", req.file ? { name: req.file.originalname, size: req.file.size } : "NO FILE");
-
   try {
     const {
       faculty_id,
@@ -283,35 +206,14 @@ app.post("/upload-assessment", upload.single("file"), async (req, res) => {
       title,
     } = req.body;
 
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-    let faculty_name;
-    try {
-      faculty_name = await getFacultyName(faculty_id);
-    } catch (err) {
-      if (req.file?.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return res.status(500).json({ error: "Faculty lookup failed: " + err.message });
-    }
+    const faculty_name = await getFacultyName(faculty_id);
+    const fileId = await uploadToDrive(req.file);
 
-    let fileId;
-    try {
-      fileId = await uploadToDrive(req.file);
-    } catch (err) {
-      if (req.file?.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return res.status(500).json({ error: "Google Drive upload failed: " + err.message });
-    }
+    fs.unlinkSync(req.file.path);
 
-    if (req.file?.path && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-
-    const { error: dbError } = await supabase.from("assessments").insert([{
+    await supabase.from("assessments").insert([{
       faculty_id,
       faculty_name,
       department,
@@ -323,59 +225,16 @@ app.post("/upload-assessment", upload.single("file"), async (req, res) => {
       file_id: fileId,
     }]);
 
-    if (dbError) {
-      console.error("upload-assessment: insert error:", dbError.message);
-      return res.status(500).json({ error: "Database insert failed: " + dbError.message });
-    }
-
-    console.log("upload-assessment: inserted successfully");
     return res.json({ success: true });
 
   } catch (error) {
-    console.error("upload-assessment UNHANDLED ERROR:", error.message);
-    if (req.file?.path && fs.existsSync(req.file.path)) {
-      try { fs.unlinkSync(req.file.path); } catch (_) {}
-    }
-    return res.status(500).json({ error: error.message || "Unknown server error" });
+    console.error("ASSESSMENT ERROR:", error.message);
+    return res.status(500).json({ error: error.message });
   }
 });
 
 //////////////////////////////////////////////////////
-// 🔐 RESET PASSWORD
-//////////////////////////////////////////////////////
-
-app.post("/reset-password", async (req, res) => {
-  try {
-    const { email, newPassword } = req.body;
-
-    if (!email || !newPassword) {
-      return res.status(400).json({ error: "Email and new password required" });
-    }
-
-    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-    if (listError) throw listError;
-
-    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (!user) {
-      return res.status(404).json({ error: "Faculty account not found" });
-    }
-
-    const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
-      password: newPassword,
-    });
-
-    if (updateError) throw updateError;
-
-    return res.json({ success: true, message: "Password updated successfully" });
-
-  } catch (err) {
-    console.error("RESET PASSWORD ERROR:", err);
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-//////////////////////////////////////////////////////
-// ❤️ HEALTH CHECK — shows env var status
+// ❤️ HEALTH CHECK
 //////////////////////////////////////////////////////
 
 app.get("/", (req, res) => {
@@ -398,5 +257,5 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log("Server running on port", PORT);
 });

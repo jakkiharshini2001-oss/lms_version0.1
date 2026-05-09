@@ -37,15 +37,16 @@ const supabase = createClient(
 );
 
 //////////////////////////////////////////////////////
-// 🔐 GOOGLE AUTH (FIXED)
+// 🔐 GOOGLE AUTH (STABLE CONFIG)
 //////////////////////////////////////////////////////
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET
+  process.env.GOOGLE_CLIENT_SECRET,
+  "https://developers.google.com/oauthplayground"
 );
 
-// IMPORTANT: refresh token setup
+// Force refresh token load
 oauth2Client.setCredentials({
   refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
 });
@@ -56,18 +57,37 @@ const drive = google.drive({
 });
 
 //////////////////////////////////////////////////////
-// 🚀 FIXED DRIVE UPLOAD (IMPORTANT PART)
+// 🧪 TEST ROUTE (VERY IMPORTANT)
+//////////////////////////////////////////////////////
+
+app.get("/test-drive", async (req, res) => {
+  try {
+    const token = await oauth2Client.getAccessToken();
+    res.json({
+      ok: true,
+      accessTokenWorking: !!token?.token,
+    });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      error: err.message,
+    });
+  }
+});
+
+//////////////////////////////////////////////////////
+// 🚀 DRIVE UPLOAD (FIXED & SAFE)
 //////////////////////////////////////////////////////
 
 async function uploadToDrive(file) {
   try {
-    console.log("Uploading to Drive:", file.originalname);
+    console.log("Uploading:", file.originalname);
 
-    // 🔥 FORCE TOKEN REFRESH (CRITICAL FIX)
-    const accessToken = await oauth2Client.getAccessToken();
+    // FORCE TOKEN REFRESH (CRITICAL FIX)
+    const tokenResponse = await oauth2Client.getAccessToken();
 
-    if (!accessToken || !accessToken.token) {
-      throw new Error("Failed to get Google Access Token (invalid refresh token)");
+    if (!tokenResponse || !tokenResponse.token) {
+      throw new Error("Google refresh token invalid or expired");
     }
 
     const response = await drive.files.create({
@@ -91,17 +111,17 @@ async function uploadToDrive(file) {
       },
     });
 
-    console.log("Drive upload success:", fileId);
+    console.log("UPLOAD SUCCESS:", fileId);
     return fileId;
 
   } catch (err) {
-    console.error("🔥 GOOGLE DRIVE ERROR:", err.response?.data || err.message);
+    console.error("🔥 DRIVE ERROR:", err.response?.data || err.message);
     throw err;
   }
 }
 
 //////////////////////////////////////////////////////
-// 🔥 GET FACULTY
+// 🔥 SUPABASE HELPERS
 //////////////////////////////////////////////////////
 
 async function getFacultyName(faculty_id) {
@@ -137,7 +157,9 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
       title,
     } = req.body;
 
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
 
     const faculty_name = await getFacultyName(faculty_id);
     const fileId = await uploadToDrive(req.file);
@@ -191,7 +213,7 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
 });
 
 //////////////////////////////////////////////////////
-// 📊 ASSESSMENT
+// 📊 ASSESSMENT UPLOAD
 //////////////////////////////////////////////////////
 
 app.post("/upload-assessment", upload.single("file"), async (req, res) => {
@@ -206,7 +228,9 @@ app.post("/upload-assessment", upload.single("file"), async (req, res) => {
       title,
     } = req.body;
 
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
 
     const faculty_name = await getFacultyName(faculty_id);
     const fileId = await uploadToDrive(req.file);

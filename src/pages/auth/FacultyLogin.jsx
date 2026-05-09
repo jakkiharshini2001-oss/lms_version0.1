@@ -29,28 +29,45 @@ export default function FacultyLogin() {
     setLoading(true);
 
     try {
+      const email = form.email.trim().toLowerCase();
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: form.email.trim(),
+        email,
         password: form.password,
       });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error("Invalid email or password");
+      }
 
-      const user = data.user;
+      const user = data?.user;
+
+      if (!user?.id) {
+        throw new Error("Login failed. User not found.");
+      }
 
       const { data: facultyData, error: dbError } = await supabase
         .from("faculty")
         .select("*")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        throw new Error("Unable to fetch faculty profile");
+      }
+
+      if (!facultyData) {
+        await supabase.auth.signOut();
+        throw new Error(
+          "Faculty profile not found. Ensure faculty.id matches auth user id."
+        );
+      }
 
       localStorage.setItem("faculty", JSON.stringify(facultyData));
 
       navigate("/faculty/dashboard");
     } catch (err) {
-      console.error(err);
+      console.error("Faculty login error:", err);
       alert(err.message || "Login failed");
     } finally {
       setLoading(false);
@@ -58,57 +75,58 @@ export default function FacultyLogin() {
   };
 
   const handleForgotPassword = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!resetEmail.trim()) {
-    alert("Please enter your email");
-    return;
-  }
-
-  const newPassword = prompt(
-    "Enter your new password (minimum 6 characters)"
-  );
-
-  if (!newPassword) return;
-
-  if (newPassword.length < 6) {
-    alert("Password must be at least 6 characters");
-    return;
-  }
-
-  setResetLoading(true);
-
-  try {
-   const BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
-
-const response = await fetch(`${BASE_URL}/reset-password`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: resetEmail,
-        newPassword,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Reset failed");
+    if (!resetEmail.trim()) {
+      alert("Please enter your email");
+      return;
     }
 
-    alert("Password updated successfully");
+    const newPassword = prompt(
+      "Enter your new password (minimum 6 characters)"
+    );
 
-    setShowForgotPassword(false);
-    setResetEmail("");
-  } catch (err) {
-    console.error(err);
-    alert(err.message);
-  } finally {
-    setResetLoading(false);
-  }
-};
+    if (!newPassword) return;
+
+    if (newPassword.length < 6) {
+      alert("Password must be at least 6 characters");
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+      const BASE_URL = (
+        import.meta.env.VITE_API_URL || "http://localhost:5000"
+      ).replace(/\/$/, "");
+
+      const response = await fetch(`${BASE_URL}/reset-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: resetEmail.trim().toLowerCase(),
+          newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Reset failed");
+      }
+
+      alert("Password updated successfully");
+      setShowForgotPassword(false);
+      setResetEmail("");
+    } catch (err) {
+      console.error("Reset password error:", err);
+      alert(err.message);
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen w-full flex font-sans">
@@ -151,7 +169,6 @@ const response = await fetch(`${BASE_URL}/reset-password`, {
 
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-
                     <input
                       type="email"
                       name="email"
@@ -171,7 +188,6 @@ const response = await fetch(`${BASE_URL}/reset-password`, {
 
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-
                     <input
                       type="password"
                       name="password"
@@ -201,17 +217,6 @@ const response = await fetch(`${BASE_URL}/reset-password`, {
                 >
                   {loading ? "Signing in..." : "Sign in"}
                 </button>
-
-                <p className="text-center text-sm text-gray-500 mt-7">
-                  New here?{" "}
-                  <button
-                    type="button"
-                    onClick={() => navigate("/faculty/signup")}
-                    className="text-blue-600 font-semibold hover:underline"
-                  >
-                    Create an account
-                  </button>
-                </p>
               </form>
             </>
           ) : (
@@ -219,11 +224,6 @@ const response = await fetch(`${BASE_URL}/reset-password`, {
               <h1 className="text-[36px] font-extrabold text-gray-900 leading-tight mb-2">
                 Forgot Password
               </h1>
-
-              <p className="text-[15px] text-gray-500 mb-10 leading-relaxed">
-                Enter your real faculty email. Supabase will send a password
-                reset link to that inbox.
-              </p>
 
               <form onSubmit={handleForgotPassword}>
                 <div className="mb-7">
@@ -233,7 +233,6 @@ const response = await fetch(`${BASE_URL}/reset-password`, {
 
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-
                     <input
                       type="email"
                       value={resetEmail}
@@ -248,46 +247,13 @@ const response = await fetch(`${BASE_URL}/reset-password`, {
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="w-full h-[52px] bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-xl font-semibold text-[15px] transition shadow-lg shadow-blue-200"
+                  className="w-full h-[52px] bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-xl font-semibold text-[15px]"
                 >
-                  {resetLoading ? "Sending link..." : "Send Reset Link"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(false)}
-                  className="w-full mt-4 h-[50px] border border-gray-200 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition"
-                >
-                  Back to Login
+                  {resetLoading ? "Updating..." : "Reset Password"}
                 </button>
               </form>
             </>
           )}
-        </div>
-
-        <p className="text-center text-xs text-gray-400">
-          © 2026 Lerno · Osmania University
-        </p>
-      </div>
-
-      <div className="hidden lg:flex w-1/2 min-h-screen bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/10" />
-
-        <div className="relative z-10 flex flex-col justify-center px-20 text-white">
-          <p className="uppercase tracking-[0.3em] text-sm text-blue-100 mb-5">
-            Faculty Portal
-          </p>
-
-          <h2 className="text-5xl font-black leading-tight mb-6">
-            Digital Learning
-            <br />
-            Starts Here.
-          </h2>
-
-          <p className="text-blue-100 text-lg leading-relaxed max-w-lg">
-            Access lectures, upload academic content, manage student learning,
-            and streamline the university learning experience.
-          </p>
         </div>
       </div>
     </div>

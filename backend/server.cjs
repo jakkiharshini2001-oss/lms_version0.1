@@ -6,40 +6,35 @@ const path = require("path");
 const { google } = require("googleapis");
 const { createClient } = require("@supabase/supabase-js");
 require("dotenv").config();
-console.log("REFRESH TOKEN:", process.env.GOOGLE_REFRESH_TOKEN);
 
 const app = express();
 
-// ✅ FIX 1: ADD BOTH BODY PARSERS
+// ===================== MIDDLEWARE =====================
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-//////////////////////////////////////////////////////
-// 📁 LOCAL STORAGE
-//////////////////////////////////////////////////////
-
+// ===================== LOCAL STORAGE =====================
 const uploadDir = path.join(__dirname, "uploads");
+
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 app.use("/uploads", express.static(uploadDir));
-const upload = multer({ dest: "uploads/" });
 
-//////////////////////////////////////////////////////
-// 🔐 SUPABASE
-//////////////////////////////////////////////////////
+const upload = multer({
+  dest: "uploads/",
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
 
+// ===================== SUPABASE =====================
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
 
-//////////////////////////////////////////////////////
-// 🔐 GOOGLE DRIVE AUTH
-//////////////////////////////////////////////////////
-
+// ===================== GOOGLE AUTH =====================
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET
@@ -54,19 +49,29 @@ const drive = google.drive({
   auth: oauth2Client,
 });
 
-//////////////////////////////////////////////////////
-// 🚀 GOOGLE DRIVE UPLOAD
-//////////////////////////////////////////////////////
+// ===================== 🔥 CRITICAL FIX =====================
+// Force refresh token BEFORE every Drive call
+async function refreshToken() {
+  try {
+    await oauth2Client.getAccessToken();
+  } catch (err) {
+    console.error("Google Token Refresh Failed:", err.message);
+    throw err;
+  }
+}
 
+// ===================== DRIVE UPLOAD =====================
 async function uploadToDrive(file) {
   try {
+    await refreshToken();
+
     const response = await drive.files.create({
       requestBody: {
         name: file.originalname,
         parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
       },
       media: {
-        mimeType: file.mimetype,
+        mimeType: file.mimetype || "application/octet-stream",
         body: fs.createReadStream(file.path),
       },
     });
@@ -83,15 +88,15 @@ async function uploadToDrive(file) {
 
     return fileId;
   } catch (err) {
-    console.error("Drive Upload Error:", err);
+    console.error(
+      "🔥 DRIVE UPLOAD ERROR:",
+      err?.response?.data || err.message || err
+    );
     throw err;
   }
 }
 
-//////////////////////////////////////////////////////
-// 🔥 GET FACULTY NAME
-//////////////////////////////////////////////////////
-
+// ===================== FACULTY =====================
 async function getFacultyName(faculty_id) {
   const { data, error } = await supabase
     .from("faculty")
@@ -100,20 +105,22 @@ async function getFacultyName(faculty_id) {
     .single();
 
   if (error || !data?.name) {
-    throw new Error("Faculty name not found");
+    throw new Error("Faculty not found");
   }
 
   return data.name;
 }
 
-//////////////////////////////////////////////////////
-// 🎯 UPLOAD CONTENT
-//////////////////////////////////////////////////////
-
+// ===================== UPLOAD CONTENT =====================
 app.post("/upload-content", upload.single("file"), async (req, res) => {
   try {
-    console.log("UPLOAD HIT ✅");
+    console.log("UPLOAD HIT");
     console.log("BODY:", req.body);
+    console.log("FILE:", req.file);
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
 
     const {
       faculty_id,
@@ -126,15 +133,13 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
       title,
     } = req.body;
 
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-
     const faculty_name = await getFacultyName(faculty_id);
 
     const fileId = await uploadToDrive(req.file);
 
-    fs.unlinkSync(req.file.path);
+    if (fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
 
     if (type === "video") {
       const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
@@ -180,18 +185,20 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
 
     return res.status(400).json({ error: "Invalid type" });
   } catch (error) {
-    console.error("UPLOAD ERROR:", error);
+    console.error("UPLOAD ERROR FULL:", error?.response?.data || error);
     return res.status(500).json({ error: error.message });
   }
 });
 
-//////////////////////////////////////////////////////
-// 📊 ASSESSMENT UPLOAD
-//////////////////////////////////////////////////////
-
+// ===================== ASSESSMENT =====================
 app.post("/upload-assessment", upload.single("file"), async (req, res) => {
   try {
-    console.log("ASSESSMENT UPLOAD HIT ✅");
+    console.log("ASSESSMENT UPLOAD HIT");
+    console.log("FILE:", req.file);
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
 
     const {
       faculty_id,
@@ -203,15 +210,13 @@ app.post("/upload-assessment", upload.single("file"), async (req, res) => {
       title,
     } = req.body;
 
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-
     const faculty_name = await getFacultyName(faculty_id);
 
     const fileId = await uploadToDrive(req.file);
 
-    fs.unlinkSync(req.file.path);
+    if (fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
 
     await supabase.from("assessments").insert([
       {
@@ -229,86 +234,58 @@ app.post("/upload-assessment", upload.single("file"), async (req, res) => {
 
     return res.json({ success: true });
   } catch (error) {
-    console.error("ASSESSMENT ERROR:", error);
+    console.error("ASSESSMENT ERROR FULL:", error?.response?.data || error);
     return res.status(500).json({ error: error.message });
   }
 });
 
-//////////////////////////////////////////////////////
-// 🔐 RESET PASSWORD (DUMMY EMAIL SUPPORT)
-//////////////////////////////////////////////////////
-
+// ===================== RESET PASSWORD =====================
 app.post("/reset-password", async (req, res) => {
   try {
     const { email, newPassword } = req.body;
 
     if (!email || !newPassword) {
-      return res.status(400).json({
-        error: "Email and new password required",
-      });
+      return res.status(400).json({ error: "Missing fields" });
     }
-
-    //////////////////////////////////////////////////////
-    // FIND USER
-    //////////////////////////////////////////////////////
 
     const {
       data: { users },
-      error: listError,
+      error,
     } = await supabase.auth.admin.listUsers();
 
-    if (listError) {
-      throw listError;
-    }
+    if (error) throw error;
 
     const user = users.find(
       (u) => u.email.toLowerCase() === email.toLowerCase()
     );
 
     if (!user) {
-      return res.status(404).json({
-        error: "Faculty account not found",
-      });
+      return res.status(404).json({ error: "User not found" });
     }
-
-    //////////////////////////////////////////////////////
-    // UPDATE PASSWORD
-    //////////////////////////////////////////////////////
 
     const { error: updateError } =
       await supabase.auth.admin.updateUserById(user.id, {
         password: newPassword,
       });
 
-    if (updateError) {
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
     return res.json({
       success: true,
-      message: "Password updated successfully",
+      message: "Password updated",
     });
   } catch (err) {
-    console.error("RESET PASSWORD ERROR:", err);
-
-    return res.status(500).json({
-      error: err.message,
-    });
+    console.error("RESET ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
-//////////////////////////////////////////////////////
-// ❤️ HEALTH CHECK
-//////////////////////////////////////////////////////
-
+// ===================== HEALTH =====================
 app.get("/", (req, res) => {
   res.send("Backend running 🚀");
 });
 
-//////////////////////////////////////////////////////
-// 🚀 START SERVER
-//////////////////////////////////////////////////////
-
+// ===================== SERVER =====================
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

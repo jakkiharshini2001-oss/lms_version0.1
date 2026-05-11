@@ -41,6 +41,9 @@ const FacultyProfile = () => {
     confirmPassword: "",
   });
 
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdMsg, setPwdMsg] = useState({ type: "", text: "" }); // type: "success" | "error"
+
   const [activityLog, setActivityLog] = useState([
     {
       action: "Logged into faculty portal",
@@ -232,30 +235,66 @@ const FacultyProfile = () => {
     }
   };
 
-  const handlePasswordUpdate = () => {
+  const handlePasswordUpdate = async () => {
+    setPwdMsg({ type: "", text: "" });
+
     if (
       !passwords.currentPassword ||
       !passwords.newPassword ||
       !passwords.confirmPassword
     ) {
-      alert("Please fill all password fields.");
+      setPwdMsg({ type: "error", text: "Please fill all password fields." });
+      return;
+    }
+
+    if (passwords.newPassword.length < 6) {
+      setPwdMsg({ type: "error", text: "New password must be at least 6 characters." });
       return;
     }
 
     if (passwords.newPassword !== passwords.confirmPassword) {
-      alert("Passwords do not match.");
+      setPwdMsg({ type: "error", text: "New passwords do not match." });
       return;
     }
 
-    setActivityLog((prev) => [
-      {
-        action: "Attempted password update",
-        time: new Date().toLocaleString(),
-      },
-      ...prev,
-    ]);
+    try {
+      setPwdLoading(true);
 
-    alert("Password auth integration can be connected later.");
+      // Step 1: Re-authenticate to verify the current password is correct
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: profile.email,
+        password: passwords.currentPassword,
+      });
+
+      if (signInError) {
+        setPwdMsg({ type: "error", text: "Current password is incorrect." });
+        return;
+      }
+
+      // Step 2: Update to the new password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwords.newPassword,
+      });
+
+      if (updateError) {
+        setPwdMsg({ type: "error", text: updateError.message || "Password update failed." });
+        return;
+      }
+
+      // Success
+      setPasswords({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPwdMsg({ type: "success", text: "Password updated successfully!" });
+
+      setActivityLog((prev) => [
+        { action: "Password updated successfully", time: new Date().toLocaleString() },
+        ...prev,
+      ]);
+    } catch (err) {
+      console.error("Password update error:", err);
+      setPwdMsg({ type: "error", text: err.message || "Something went wrong." });
+    } finally {
+      setPwdLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -471,14 +510,28 @@ const FacultyProfile = () => {
               />
             </div>
 
-            <div className="mt-6">
-              <button
-                onClick={handlePasswordUpdate}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl flex items-center gap-2"
-              >
-                <Lock size={18} />
-                Update Password
-              </button>
+            <div className="mt-6 flex flex-col gap-3">
+              {pwdMsg.text && (
+                <div
+                  className={`px-4 py-3 rounded-xl text-sm font-medium ${
+                    pwdMsg.type === "success"
+                      ? "bg-green-50 text-green-700 border border-green-200"
+                      : "bg-red-50 text-red-700 border border-red-200"
+                  }`}
+                >
+                  {pwdMsg.type === "success" ? "✅ " : "⚠️ "}{pwdMsg.text}
+                </div>
+              )}
+              <div>
+                <button
+                  onClick={handlePasswordUpdate}
+                  disabled={pwdLoading}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl flex items-center gap-2 transition-all"
+                >
+                  <Lock size={18} />
+                  {pwdLoading ? "Updating…" : "Update Password"}
+                </button>
+              </div>
             </div>
           </SectionCard>
 

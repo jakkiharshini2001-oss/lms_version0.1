@@ -89,7 +89,7 @@ export default function ContentUpload() {
     <div className="flex h-screen bg-[#f6f8fb]">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <Topbar />
 
         <div className="p-6">
@@ -118,8 +118,8 @@ export default function ContentUpload() {
           </div>
 
          <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6 h-[calc(100vh-190px)] overflow-hidden">
-  {/* LEFT FORM */}
-  <div className="bg-white rounded-2xl shadow-sm border p-6 overflow-hidden">
+  {/* LEFT FORM — scrollable so preview stays inside */}
+  <div className="bg-white rounded-2xl shadow-sm border p-6 overflow-y-auto">
     {activeTab === "video" && <VideoForm faculty={faculty} />}
     {activeTab === "pdf" && <PDFForm faculty={faculty} />}
     {activeTab === "assessment" && <AssessmentForm faculty={faculty} />}
@@ -150,17 +150,17 @@ export default function ContentUpload() {
       </p>
 
       <div className="space-y-3">
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10">
-          <h3 className="font-semibold mb-1">📚 Lecture Notes</h3>
-          <p className="text-xs text-blue-100">
-            Organize unit-wise lecture materials.
-          </p>
-        </div>
-
+      
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10">
           <h3 className="font-semibold mb-1">🎥 Video Classes</h3>
           <p className="text-xs text-blue-100">
             Upload engaging academic video content.
+          </p>
+        </div>
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10">
+          <h3 className="font-semibold mb-1">📚 Lecture Notes</h3>
+          <p className="text-xs text-blue-100">
+            Organize unit-wise lecture materials.
           </p>
         </div>
 
@@ -340,14 +340,17 @@ const res = await fetch(`${BASE_URL}/upload-content`, {
 
       {uploadedUrl && (
         <div className="mt-4">
-          <p className="text-sm text-gray-600 mb-2">Preview:</p>
-          <iframe
-            src={uploadedUrl}
-            width="100%"
-            height="300"
-            allow="autoplay"
-            title="Video Preview"
-          />
+          <p className="text-sm font-medium text-gray-600 mb-2">Preview:</p>
+          <div className="rounded-xl overflow-hidden border border-gray-200">
+            <iframe
+              src={uploadedUrl}
+              width="100%"
+              height="220"
+              allow="autoplay"
+              title="Video Preview"
+              style={{ display: "block" }}
+            />
+          </div>
         </div>
       )}
     </form>
@@ -615,17 +618,16 @@ const res = await fetch(`${BASE_URL}/upload-assessment`, {
       )}
 
       <input
-        placeholder="Assessment Title"
-        className="input"
-        value={form.title}
-        onChange={(e) => setForm({ ...form, title: e.target.value })}
-      />
-
-      <input
         placeholder="Subject"
         className="input"
         value={form.subject}
         onChange={(e) => setForm({ ...form, subject: e.target.value })}
+      />
+       <input
+        placeholder="Title"
+        className="input"
+        value={form.title}
+        onChange={(e) => setForm({ ...form, title: e.target.value })}
       />
 
       <input

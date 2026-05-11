@@ -4,6 +4,7 @@ import Header from "./components/Header/Header";
 import Footer from "./components/Footer/Footer";
 
 import HomePage from "./pages/HomePage/HomePage";
+import AboutUs from "./pages/HomePage/AboutUs";
 
 import FacultySignup from "./pages/auth/FacultySignup";
 import FacultyLogin from "./pages/auth/FacultyLogin";
@@ -30,6 +31,20 @@ function App() {
               <Header />
               <main className="main-content">
                 <HomePage />
+              </main>
+              <Footer />
+            </>
+          }
+        />
+
+        {/* ABOUT US */}
+        <Route
+          path="/about"
+          element={
+            <>
+              <Header />
+              <main className="main-content">
+                <AboutUs />
               </main>
               <Footer />
             </>

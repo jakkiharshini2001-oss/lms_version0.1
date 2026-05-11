@@ -73,116 +73,111 @@ const HomePage = () => {
   const navigate = useNavigate();
   const toggleFaq = (i) => setFaqOpen(faqOpen === i ? null : i);
 
-const faqs = [
-  {
-    question: "What is the purpose of the Osmania University LMS?",
-    answer:
-      "The LMS is designed to provide one digital platform where faculty can upload lecture videos, assessments, and academic materials, while students can access learning resources anytime from one place.",
-  },
-  {
-    question: "Who can use this LMS platform?",
-    answer:
-      "The platform is mainly built for Osmania University faculty and students. Faculty can manage academic content, and students can view subject-wise materials, videos, lecture notes, and assessments.",
-  },
-  {
-    question: "How can faculty upload course content?",
-    answer:
-      "Faculty members can log in to the faculty dashboard and upload videos, lecture notes, and assessment files by selecting year, semester, subject, unit, and title.",
-  },
-  {
-    question: "Is semester selection required for all years?",
-    answer:
-      "No. For 1st year, subjects are shown directly without semester selection. From 2nd year to 4th year, content is organized semester-wise.",
-  },
-  {
-    question: "How is content organized in the LMS?",
-    answer:
-      "Content is organized in a structured format: Year, Semester, Subject, Unit, and then Videos, Lecture Notes, and Assessments. This helps students find materials easily.",
-  },
-  {
-    question: "Can faculty preview uploaded PDFs and assessments?",
-    answer:
-      "Yes. Faculty can preview PDF lecture notes directly inside the LMS. Assessment files such as Excel sheets can also be previewed in a table format.",
-  },
-  {
-    question: "Can faculty delete uploaded content?",
-    answer:
-      "Yes. Faculty can delete uploaded videos, PDFs, and assessments from the subject details page. Once deleted, the content is removed from the LMS records.",
-  },
-  {
-    question: "Can students access materials anytime?",
-    answer:
-      "Yes. The LMS is planned to provide 24/7 access to lecture videos, PDFs, and assessments so students can revise and learn at their own pace.",
-  },
-];
+  const faqs = [
+    {
+      question: "What is the purpose of the Osmania University LMS?",
+      answer:
+        "The LMS is designed to provide one digital platform where faculty can upload lecture videos, assessments, and academic materials, while students can access learning resources anytime from one place.",
+    },
+    {
+      question: "Who can use this LMS platform?",
+      answer:
+        "The platform is mainly built for Osmania University faculty and students. Faculty can manage academic content, and students can view subject-wise materials, videos, lecture notes, and assessments.",
+    },
+    {
+      question: "How can faculty upload course content?",
+      answer:
+        "Faculty members can log in to the faculty dashboard and upload videos, lecture notes, and assessment files by selecting year, semester, subject, unit, and title.",
+    },
+    {
+      question: "Is semester selection required for all years?",
+      answer:
+        "No. For 1st year, subjects are shown directly without semester selection. From 2nd year to 4th year, content is organized semester-wise.",
+    },
+    {
+      question: "How is content organized in the LMS?",
+      answer:
+        "Content is organized in a structured format: Year, Semester, Subject, Unit, and then Videos, Lecture Notes, and Assessments. This helps students find materials easily.",
+    },
+    {
+      question: "Can faculty preview uploaded PDFs and assessments?",
+      answer:
+        "Yes. Faculty can preview PDF lecture notes directly inside the LMS. Assessment files such as Excel sheets can also be previewed in a table format.",
+    },
+    {
+      question: "Can faculty delete uploaded content?",
+      answer:
+        "Yes. Faculty can delete uploaded videos, PDFs, and assessments from the subject details page. Once deleted, the content is removed from the LMS records.",
+    },
+    {
+      question: "Can students access materials anytime?",
+      answer:
+        "Yes. The LMS is planned to provide 24/7 access to lecture videos, PDFs, and assessments so students can revise and learn at their own pace.",
+    },
+  ];
 
-const courseCards = [
-  { src: oueng, title: 'Hardware Acceleration for machine...', meta: 'Prof. P Chandra Sekhar · 26 lessons' },
-  { src: '/student_learning.png', title: 'Geographic information system', meta: 'Prof. M Gopal Naik · 25 lessons' },
-  { src: viceChancellorImg, title: 'Subsidence due to underground mining', meta: 'Dr. K V Shanker · 28 lessons' },
-  { src: principalImg, title: 'Surface hardening process', meta: 'Dr. T Nagaveni · 38 lessons' },
-];
+  const courseCards = [
+    { src: oueng, title: 'Hardware Acceleration for machine...', meta: 'Prof. P Chandra Sekhar · 26 lessons' },
+    { src: '/student_learning.png', title: 'Geographic information system', meta: 'Prof. M Gopal Naik · 25 lessons' },
+    { src: viceChancellorImg, title: 'Subsidence due to underground mining', meta: 'Dr. K V Shanker · 28 lessons' },
+    { src: principalImg, title: 'Surface hardening process', meta: 'Dr. T Nagaveni · 38 lessons' },
+  ];
   return (
     <div className="bg-white text-gray-900">
 
       {/* ══════════ NAVBAR ══════════ */}
-   <nav className="fixed top-0 left-0 right-0 z-[9999] bg-white border-b border-gray-100 shadow-sm">
-  <div className="max-w-screen-xl mx-auto px-8 h-[80px] flex items-center justify-between">
+      <nav className="fixed top-0 left-0 right-0 z-[9999] bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-screen-xl mx-auto px-8 h-[80px] flex items-center justify-between">
 
-    {/* Logo */}
-    <div className="flex items-center gap-3">
-      <img src={oulogo} alt="OU Logo" className="w-11 h-11 rounded-lg" />
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <img src={oulogo} alt="OU Logo" className="w-11 h-11 rounded-lg" />
 
-      <span className="text-3xl font-bold text-gray-900">
-        LMS
-      </span>
-    </div>
+            <span className="text-3xl font-bold text-gray-900">
+              LMS
+            </span>
+          </div>
 
-    {/* Center Nav */}
-    <div className="hidden md:flex items-center gap-10">
-      <a href="#" className="text-gray-700 font-medium hover:text-blue-600 transition-colors">
-        Home
-      </a>
+          {/* Center Nav */}
+          <div className="hidden md:flex items-center gap-10">
+            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-gray-700 font-medium hover:text-blue-600 transition-colors">
+              Home
+            </button>
 
-      <a href="#" className="text-gray-700 font-medium hover:text-blue-600 transition-colors">
-        Courses
-      </a>
+            <a href="#faq" className="text-gray-700 font-medium hover:text-blue-600 transition-colors">
+              FAQ's
+            </a>
 
-      <a href="#" className="text-gray-700 font-medium hover:text-blue-600 transition-colors">
-        FAQ
-      </a>
-    </div>
+            <button onClick={() => { window.scrollTo(0, 0); navigate('/about'); }} className="text-gray-700 font-medium hover:text-blue-600 transition-colors">
+              About us
+            </button>
+          </div>
 
-    {/* Buttons */}
-    <div className="flex items-center gap-4">
-      <button
-        onClick={() => navigate('/faculty/login')}
-        className="px-6 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition"
-      >
-        Sign in
-      </button>
+          {/* Buttons */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/faculty/login')}
+              className="px-6 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition"
+            >
+              Sign in
+            </button>
 
-      <button
-        onClick={() => navigate('/faculty/signup')}
-        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition"
-      >
-        Get started
-      </button>
-    </div>
+            <button
+              onClick={() => navigate('/faculty/signup')}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition"
+            >
+              Get started
+            </button>
+          </div>
 
-  </div>
-</nav>
+        </div>
+      </nav>
       {/* ══════════ HERO ══════════ */}
       <section className="pt-[60px] bg-white">
         <div className="max-w-screen-xl mx-auto px-8 py-20 flex flex-col lg:flex-row items-center gap-16">
           <div className="flex-1 max-w-[580px]">
             <Reveal direction="up">
-              <div className="inline-flex items-center gap-2 border border-gray-200 rounded-full px-3.5 py-1.5 mb-7 shadow-sm">
-                <svg className="w-3.5 h-3.5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-                </svg>
 
-              </div>
 
               <h1 className="text-5xl lg:text-[64px] font-black text-gray-900 leading-[1.08] tracking-tight mb-5">
                 The Digital Hub<br />
@@ -490,7 +485,7 @@ const courseCards = [
       </section>
 
       {/* ══════════ FAQ ══════════ */}
-      <section className="bg-gray-50 py-24 px-8">
+      <section id="faq" className="bg-gray-50 py-24 px-8">
         <div className="max-w-3xl mx-auto">
           <Reveal direction="up" className="text-center mb-12">
             <h2 className="text-4xl font-black text-gray-900 mb-4">Frequently asked questions</h2>
@@ -522,7 +517,7 @@ const courseCards = [
         </div>
       </section>
 
-      
+
 
     </div>
   );

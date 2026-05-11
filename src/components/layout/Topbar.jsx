@@ -44,7 +44,7 @@ export default function Topbar() {
     }, []);
 
     return (
-        <div className="h-16 bg-white border-b flex items-center justify-between px-6 relative z-10">
+        <div className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-30 shadow-sm">
 
             {/* SEARCH */}
             <div className="flex items-center bg-gray-100 px-4 py-2 rounded-lg w-[400px]">

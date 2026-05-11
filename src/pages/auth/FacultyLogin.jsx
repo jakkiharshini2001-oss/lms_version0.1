@@ -1,33 +1,63 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mail, Lock, ArrowLeft } from "lucide-react";
+import { Mail, Lock, ShieldCheck, ArrowLeft } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import oulogo from "../../assets/images/Eng_college_log.png";
 
+/* ─── Inject global styles once (shared with FacultySignup) ─── */
+(function injectStyles() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("fl-global")) return;
+  const s = document.createElement("style");
+  s.id = "fl-global";
+  s.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    @keyframes fl-spin { to { transform: rotate(360deg); } }
+
+    /* right panel: hidden by default, visible on ≥1024 px */
+    .fl-right-panel { display: none !important; }
+    @media (min-width: 1024px) {
+      .fl-right-panel { display: flex !important; }
+    }
+
+    .fl-input:focus {
+      border-color: #2563eb !important;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15) !important;
+      background-color: #fff !important;
+      outline: none;
+    }
+
+    .fl-submit:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(37,99,235,0.38) !important;
+    }
+    .fl-submit:not(:disabled):active { transform: translateY(0); }
+    .fl-brand:hover { opacity: 0.8; }
+    .fl-forgot:hover { text-decoration: underline; }
+  `;
+  document.head.appendChild(s);
+})();
+
+/* ═══════════════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════════════ */
 export default function FacultyLogin() {
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-  });
-
+  const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
 
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
-  };
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
+  /* ── LOGIN ── */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const email = form.email.trim().toLowerCase();
 
@@ -36,15 +66,10 @@ export default function FacultyLogin() {
         password: form.password,
       });
 
-      if (error) {
-        throw new Error("Invalid email or password");
-      }
+      if (error) throw new Error("Invalid email or password");
 
       const user = data?.user;
-
-      if (!user?.id) {
-        throw new Error("Login failed. User not found.");
-      }
+      if (!user?.id) throw new Error("Login failed. User not found.");
 
       const { data: facultyData, error: dbError } = await supabase
         .from("faculty")
@@ -52,9 +77,7 @@ export default function FacultyLogin() {
         .eq("id", user.id)
         .maybeSingle();
 
-      if (dbError) {
-        throw new Error("Unable to fetch faculty profile");
-      }
+      if (dbError) throw new Error("Unable to fetch faculty profile");
 
       if (!facultyData) {
         await supabase.auth.signOut();
@@ -64,7 +87,6 @@ export default function FacultyLogin() {
       }
 
       localStorage.setItem("faculty", JSON.stringify(facultyData));
-
       navigate("/faculty/dashboard");
     } catch (err) {
       console.error("Faculty login error:", err);
@@ -74,6 +96,7 @@ export default function FacultyLogin() {
     }
   };
 
+  /* ── FORGOT PASSWORD ── */
   const handleForgotPassword = async (e) => {
     e.preventDefault();
 
@@ -82,10 +105,7 @@ export default function FacultyLogin() {
       return;
     }
 
-    const newPassword = prompt(
-      "Enter your new password (minimum 6 characters)"
-    );
-
+    const newPassword = prompt("Enter your new password (minimum 6 characters)");
     if (!newPassword) return;
 
     if (newPassword.length < 6) {
@@ -94,7 +114,6 @@ export default function FacultyLogin() {
     }
 
     setResetLoading(true);
-
     try {
       const BASE_URL = (
         import.meta.env.VITE_API_URL || "http://localhost:5000"
@@ -102,9 +121,7 @@ export default function FacultyLogin() {
 
       const response = await fetch(`${BASE_URL}/reset-password`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: resetEmail.trim().toLowerCase(),
           newPassword,
@@ -112,10 +129,7 @@ export default function FacultyLogin() {
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Reset failed");
-      }
+      if (!response.ok) throw new Error(data.error || "Reset failed");
 
       alert("Password updated successfully");
       setShowForgotPassword(false);
@@ -128,261 +142,608 @@ export default function FacultyLogin() {
     }
   };
 
+  /* ─── JSX ─── */
   return (
-    <div className="w-full h-screen flex overflow-hidden">
-      {/* LEFT PANEL - LOGIN FORM */}
-      <div className="w-full lg:w-1/2 flex flex-col bg-white overflow-y-auto">
-        <div className="flex-1 px-8 sm:px-16 py-8">
-          <div className="max-w-[480px] mx-auto">
-            {/* HEADER */}
-            <div className="flex items-center justify-between mb-20">
-              <button
-                type="button"
-                onClick={() => navigate("/")}
-                className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-              >
-                <img
-                  src={oulogo}
-                  alt="OU Logo"
-                  className="w-12 h-12 rounded-lg"
-                />
-                <div className="text-left">
-                  <p className="text-lg font-bold text-gray-900">LMS · Osmania University</p>
-                </div>
-              </button>
-            </div>
+    <div
+      style={{
+        display: "flex",
+        width: "100%",
+        height: "100vh",
+        overflow: "hidden",
+        fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+        backgroundColor: "#fff",
+      }}
+    >
 
+      {/* ══════════ LEFT PANEL – FORM ══════════ */}
+      <div
+        style={{
+          flex: "1 1 0",
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: "#fff",
+          overflowY: "auto",
+        }}
+      >
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "44px 28px",
+          }}
+        >
+          <div style={{ width: "100%", maxWidth: "420px" }}>
+
+            {/* BRAND */}
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="fl-brand"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+                marginBottom: "44px",
+                transition: "opacity 0.2s",
+              }}
+            >
+              <img
+                src={oulogo}
+                alt="OU Logo"
+                style={{
+                  width: "44px",
+                  height: "44px",
+                  borderRadius: "10px",
+                  objectFit: "cover",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+                }}
+              />
+              <div>
+                <p
+                  style={{
+                    fontSize: "10px",
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "#6b7280",
+                    fontWeight: 600,
+                    marginBottom: "2px",
+                  }}
+                >
+                  LMS · Osmania University
+                </p>
+                <p style={{ fontSize: "14px", fontWeight: 700, color: "#111827" }}>
+                  Faculty Portal
+                </p>
+              </div>
+            </button>
+
+            {/* ── LOGIN VIEW ── */}
             {!showForgotPassword ? (
               <>
-                {/* WELCOME TEXT */}
-                <div className="mb-12">
-                  <h1 className="text-[40px] font-bold text-gray-900 leading-tight mb-3">
+                <div style={{ marginBottom: "30px" }}>
+                  <h1
+                    style={{
+                      fontSize: "clamp(26px,4vw,34px)",
+                      fontWeight: 800,
+                      color: "#111827",
+                      lineHeight: 1.15,
+                      marginBottom: "10px",
+                      letterSpacing: "-0.4px",
+                    }}
+                  >
                     Welcome back
                   </h1>
-                  <p className="text-base text-gray-600 leading-relaxed">
-                    Sign in with your university email.
+                  <p style={{ fontSize: "14px", color: "#6b7280", lineHeight: 1.65 }}>
+                    Sign in with your university email to continue.
                   </p>
                 </div>
 
-                {/* LOGIN FORM */}
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form
+                  onSubmit={handleSubmit}
+                  style={{ display: "flex", flexDirection: "column", gap: "18px" }}
+                >
                   {/* EMAIL */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
-                      University Email
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      <input
-                        type="email"
-                        name="email"
-                        value={form.email}
-                        onChange={handleChange}
-                        required
-                        placeholder="you@osmania.ac.in"
-                        className="w-full h-14 pl-12 pr-4 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 focus:bg-white transition-all placeholder:text-gray-400"
-                      />
-                    </div>
-                  </div>
+                  <Field
+                    icon={Mail}
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    placeholder="you@osmania.ac.in"
+                    label="University Email"
+                  />
 
                   {/* PASSWORD */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <label style={lbl}>Password</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPassword(true)}
+                        className="fl-forgot"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          fontSize: "12px",
+                          color: "#2563eb",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          padding: 0,
+                          transition: "opacity 0.15s",
+                        }}
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                    <div style={{ position: "relative" }}>
+                      <Lock
+                        size={17}
+                        style={{
+                          position: "absolute",
+                          left: "14px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: "#9ca3af",
+                          pointerEvents: "none",
+                        }}
+                      />
                       <input
                         type="password"
                         name="password"
                         value={form.password}
                         onChange={handleChange}
                         required
-                        placeholder="••••••"
-                        className="w-full h-14 pl-12 pr-4 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 focus:bg-white transition-all placeholder:text-gray-400"
+                        placeholder="••••••••"
+                        className="fl-input"
+                        style={inputBase}
                       />
                     </div>
                   </div>
 
-                  {/* FORGOT PASSWORD LINK */}
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setShowForgotPassword(true)}
-                      className="text-sm text-blue-600 font-semibold hover:underline"
-                    >
-                      Forgot Password?
-                    </button>
-                  </div>
-
-                  {/* SUBMIT BUTTON */}
+                  {/* SUBMIT */}
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full h-14 rounded-xl bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white font-semibold text-base transition-all disabled:cursor-not-allowed disabled:opacity-70 shadow-sm active:scale-[0.99] mt-2"
+                    className="fl-submit"
+                    style={{
+                      ...submitBase,
+                      marginTop: "6px",
+                      opacity: loading ? 0.72 : 1,
+                      cursor: loading ? "not-allowed" : "pointer",
+                    }}
                   >
-                    {loading ? "Signing in..." : "Sign in"}
+                    {loading && <Spinner />}
+                    {loading ? "Signing in…" : "Sign in"}
                   </button>
-                </form>
 
-                {/* NEW HERE LINK */}
-                <p className="text-center text-sm text-gray-600 mt-8">
-                  New here?{" "}
-                  <button
-                    type="button"
-                    onClick={() => navigate("/faculty/signup")}
-                    className="font-semibold text-gray-900 hover:underline"
-                  >
-                    Create an account
-                  </button>
-                </p>
+                  {/* SIGN-UP LINK */}
+                  <p style={{ textAlign: "center", fontSize: "13px", color: "#6b7280" }}>
+                    New here?{" "}
+                    <button
+                      type="button"
+                      onClick={() => navigate("/faculty/signup")}
+                      style={textLinkStyle}
+                    >
+                      Create an account
+                    </button>
+                  </p>
+                </form>
               </>
             ) : (
+
+              /* ── FORGOT PASSWORD VIEW ── */
               <>
-                {/* FORGOT PASSWORD */}
-                <div className="mb-12">
-                  <h1 className="text-[40px] font-bold text-gray-900 leading-tight mb-3">
-                    Forgot Password
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(false)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#6b7280",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    padding: 0,
+                    marginBottom: "32px",
+                    transition: "color 0.15s",
+                  }}
+                >
+                  <ArrowLeft size={15} /> Back to login
+                </button>
+
+                <div style={{ marginBottom: "30px" }}>
+                  <h1
+                    style={{
+                      fontSize: "clamp(24px,4vw,32px)",
+                      fontWeight: 800,
+                      color: "#111827",
+                      lineHeight: 1.15,
+                      marginBottom: "10px",
+                      letterSpacing: "-0.4px",
+                    }}
+                  >
+                    Reset password
                   </h1>
-                  <p className="text-base text-gray-600 leading-relaxed">
-                    Enter your email to reset your password.
+                  <p style={{ fontSize: "14px", color: "#6b7280", lineHeight: 1.65 }}>
+                    Enter your registered email to update your password.
                   </p>
                 </div>
 
-                <form onSubmit={handleForgotPassword} className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
-                      Faculty Email
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      <input
-                        type="email"
-                        value={resetEmail}
-                        onChange={(e) => setResetEmail(e.target.value)}
-                        required
-                        placeholder="you@osmania.ac.in"
-                        className="w-full h-14 pl-12 pr-4 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 focus:bg-white transition-all placeholder:text-gray-400"
-                      />
-                    </div>
-                  </div>
+                <form
+                  onSubmit={handleForgotPassword}
+                  style={{ display: "flex", flexDirection: "column", gap: "18px" }}
+                >
+                  <Field
+                    icon={Mail}
+                    type="email"
+                    label="Faculty Email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="you@osmania.ac.in"
+                  />
 
                   <button
                     type="submit"
                     disabled={resetLoading}
-                    className="w-full h-14 rounded-xl bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white font-semibold text-base transition-all disabled:cursor-not-allowed disabled:opacity-70 shadow-sm active:scale-[0.99] mt-4"
+                    className="fl-submit"
+                    style={{
+                      ...submitBase,
+                      marginTop: "6px",
+                      opacity: resetLoading ? 0.72 : 1,
+                      cursor: resetLoading ? "not-allowed" : "pointer",
+                    }}
                   >
-                    {resetLoading ? "Updating..." : "Reset Password"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPassword(false)}
-                    className="w-full text-sm text-gray-600 hover:text-gray-900 font-semibold hover:underline mt-4"
-                  >
-                    ← Back to login
+                    {resetLoading && <Spinner />}
+                    {resetLoading ? "Updating…" : "Reset Password"}
                   </button>
                 </form>
               </>
             )}
 
             {/* FOOTER */}
-            <p className="text-center text-xs text-gray-400 mt-16">
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: "11px",
+                color: "#9ca3af",
+                marginTop: "36px",
+              }}
+            >
               © 2026 LMS · Osmania University
             </p>
           </div>
         </div>
       </div>
 
-      {/* RIGHT PANEL - ILLUSTRATION */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#2c5282] flex-col">
-        {/* TOP SECTION WITH TEXT */}
-        <div className="flex-1 flex flex-col justify-center px-12 xl:px-16">
-          <div className="max-w-xl">
-            <h2 className="text-[48px] font-bold text-white leading-tight mb-6">
-              The official LMS for Osmania University.
-            </h2>
-            <p className="text-lg text-blue-100 leading-relaxed mb-12">
-              Lectures, notes, and instant-graded MCQs — all branch-aware.
-            </p>
+      {/* ══════════ RIGHT PANEL – BLUE ILLUSTRATION ══════════ */}
+      <div
+        className="fl-right-panel"
+        style={{
+          flex: "0 0 48%",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          overflow: "hidden",
+          background:
+            "linear-gradient(145deg,#0f2167 0%,#1e40af 52%,#0369a1 100%)",
+          minHeight: "100vh",
+          padding: "48px 40px",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* grid texture */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px)," +
+              "linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)",
+            backgroundSize: "44px 44px",
+            pointerEvents: "none",
+          }}
+        />
+        {/* decorative blobs */}
+        <div
+          style={{
+            position: "absolute",
+            top: "-140px",
+            left: "-140px",
+            width: "400px",
+            height: "400px",
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.06)",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: "-110px",
+            right: "-110px",
+            width: "320px",
+            height: "320px",
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.05)",
+            pointerEvents: "none",
+          }}
+        />
 
-            {/* ILLUSTRATION */}
-            <div className="relative w-full max-w-md mx-auto">
-              {/* Light blue background container */}
-              <div className="bg-gradient-to-br from-blue-100 to-blue-50 rounded-3xl p-8 relative overflow-visible">
-                {/* Video Player Card */}
-                <div className="relative bg-[#1e40af] rounded-2xl p-6 shadow-2xl mb-6 overflow-visible">
-                  {/* Video screen */}
-                  <div className="bg-[#2563eb] rounded-xl h-32 mb-4 relative overflow-hidden">
-                    {/* Play button */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-[#06b6d4] rounded-full flex items-center justify-center shadow-lg">
-                      <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[12px] border-l-white border-b-[8px] border-b-transparent ml-1"></div>
-                    </div>
+        {/* CONTENT */}
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            width: "100%",
+            maxWidth: "420px",
+          }}
+        >
+          {/* badge */}
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "rgba(255,255,255,0.10)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              borderRadius: "999px",
+              padding: "5px 14px",
+              fontSize: "11px",
+              color: "#bfdbfe",
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              marginBottom: "20px",
+            }}
+          >
+            <ShieldCheck size={13} style={{ color: "#93c5fd" }} />
+            Official Faculty Portal
+          </span>
 
-                    {/* Progress bar */}
-                    <div className="absolute bottom-3 left-4 right-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 bg-white rounded flex items-center justify-center text-[8px] text-blue-600">▶</div>
-                        <div className="w-4 h-4 bg-white rounded flex items-center justify-center text-[8px] text-blue-600">❚❚</div>
-                        <div className="flex-1 h-1 bg-white/30 rounded-full">
-                          <div className="w-1/2 h-full bg-white rounded-full"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+          {/* headline */}
+          <h2
+            style={{
+              fontSize: "clamp(22px,2.6vw,32px)",
+              fontWeight: 800,
+              color: "#fff",
+              textAlign: "center",
+              lineHeight: 1.2,
+              letterSpacing: "-0.3px",
+              marginBottom: "12px",
+            }}
+          >
+            The official LMS for<br />Osmania University
+          </h2>
+          <p
+            style={{
+              fontSize: "14px",
+              color: "#bfdbfe",
+              textAlign: "center",
+              lineHeight: 1.7,
+              maxWidth: "340px",
+              marginBottom: "28px",
+            }}
+          >
+            Access your dashboard, upload content, and track student progress
+            — all from one branch-aware platform.
+          </p>
 
-                  {/* Graduation cap - positioned to overflow */}
-                  <div className="absolute -top-6 -right-6 w-24 h-24 bg-[#1e40af] rounded-lg shadow-xl transform rotate-12 flex items-center justify-center">
-                    <div className="w-20 h-20 relative">
-                      {/* Cap top */}
-                      <div className="absolute top-2 left-1/2 -translate-x-1/2 w-16 h-1 bg-blue-300 rounded-full"></div>
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-4 bg-[#2563eb] transform -skew-y-12 rounded"></div>
-                      {/* Cap base */}
-                      <div className="absolute top-4 left-1/2 -translate-x-1/2 w-8 h-10 bg-[#1e40af] rounded-t-full border-2 border-blue-300"></div>
-                      {/* Tassel */}
-                      <div className="absolute top-1 right-2 w-1 h-6 bg-blue-300"></div>
-                      <div className="absolute top-6 right-1.5 w-2 h-2 bg-blue-300 rounded-full"></div>
-                    </div>
-                  </div>
-                </div>
+          {/* ── SVG ILLUSTRATION ── */}
+          <div style={{ width: "100%", lineHeight: 0 }}>
+            <svg
+              viewBox="0 0 800 520"
+              xmlns="http://www.w3.org/2000/svg"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            >
+              {/* Monitor frame */}
+              <rect x="220" y="50" width="360" height="248" rx="14" fill="#1e40af" opacity="0.75" />
+              {/* Screen */}
+              <rect x="236" y="66" width="328" height="216" rx="8" fill="#1d4ed8" />
+              {/* Play circle */}
+              <circle cx="400" cy="180" r="40" fill="#06b6d4" opacity="0.92" />
+              <polygon points="391,163 391,197 423,180" fill="#fff" />
+              {/* Progress track */}
+              <rect x="274" y="264" width="252" height="5" rx="2.5" fill="#1e3a8a" />
+              <rect x="274" y="264" width="150" height="5" rx="2.5" fill="#38bdf8" />
+              {/* Controls */}
+              <polygon points="280,276 280,288 290,282" fill="#93c5fd" />
+              <rect x="296" y="276" width="3" height="12" rx="1.5" fill="#93c5fd" />
+              <rect x="303" y="276" width="3" height="12" rx="1.5" fill="#93c5fd" />
+              {/* Stand */}
+              <rect x="370" y="298" width="60" height="14" rx="4" fill="#1e3a8a" />
+              <rect x="348" y="312" width="104" height="8" rx="4" fill="#1e3a8a" />
 
-                {/* Books Stack - Bottom Left */}
-                <div className="absolute -bottom-4 -left-4 flex flex-col gap-1">
-                  <div className="w-24 h-8 bg-[#1e40af] rounded-lg shadow-xl transform -rotate-3"></div>
-                  <div className="w-28 h-8 bg-[#2563eb] rounded-lg shadow-xl transform rotate-2"></div>
-                </div>
+              {/* Books – bottom left */}
+              <g transform="translate(70,360)">
+                <rect x="0" y="30" width="140" height="46" rx="8" fill="#0891b2" transform="rotate(-3 70 53)" />
+                <rect x="10" y="36" width="5" height="36" fill="#0e7490" transform="rotate(-3 12.5 53)" />
+                <rect x="0" y="0" width="150" height="40" rx="8" fill="#fff" opacity="0.82" transform="rotate(2 75 20)" />
+                <rect x="10" y="5" width="5" height="30" fill="#d1d5db" transform="rotate(2 12.5 20)" />
+                <rect x="10" y="-26" width="135" height="38" rx="8" fill="#1e40af" transform="rotate(-2 77.5 -7)" />
+                <rect x="20" y="-21" width="5" height="28" fill="#1e3a8a" transform="rotate(-2 22.5 -7)" />
+              </g>
 
-                {/* Chat/Message Icon - Left Side */}
-                <div className="absolute top-1/3 -left-6 w-16 h-12 bg-[#06b6d4] rounded-2xl shadow-xl flex items-center justify-center">
-                  <div className="space-y-1">
-                    <div className="h-1.5 w-8 bg-white rounded-full"></div>
-                    <div className="h-1.5 w-6 bg-white rounded-full"></div>
-                  </div>
-                </div>
+              {/* Graduation cap – top right */}
+              <g transform="translate(600,90)">
+                <rect x="-30" y="0" width="100" height="8" rx="2" fill="#38bdf8" transform="rotate(-15 20 4)" />
+                <polygon points="0,8 40,8 50,-8 -10,-8" fill="#0ea5e9" transform="rotate(-15 20 0)" />
+                <ellipse cx="20" cy="15" rx="25" ry="8" fill="#0ea5e9" />
+                <rect x="15" y="15" width="10" height="28" rx="5" fill="#0ea5e9" />
+                <ellipse cx="20" cy="43" rx="8" ry="5" fill="#0369a1" />
+                <line x1="45" y1="-5" x2="45" y2="20" stroke="#67e8f9" strokeWidth="2" />
+                <circle cx="45" cy="22" r="4" fill="#67e8f9" />
+              </g>
 
-                {/* Certificate Card - Right Side */}
-                <div className="absolute top-1/2 -right-8 w-32 h-40 bg-white rounded-2xl shadow-2xl p-4 transform rotate-6">
-                  <div className="text-center">
-                    <div className="text-xs font-bold text-gray-800 mb-2">Certificate</div>
-                    <div className="w-12 h-12 mx-auto bg-yellow-400 rounded-full flex items-center justify-center mb-2">
-                      <svg className="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="h-1 bg-gray-200 rounded"></div>
-                      <div className="h-1 bg-gray-200 rounded w-3/4 mx-auto"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+              {/* Chat bubble – left */}
+              <g transform="translate(60,195)">
+                <rect x="0" y="0" width="105" height="68" rx="14" fill="#0891b2" opacity="0.82" />
+                <polygon points="14,68 28,68 10,86" fill="#0891b2" opacity="0.82" />
+                <rect x="14" y="17" width="68" height="5" rx="2.5" fill="#fff" opacity="0.75" />
+                <rect x="14" y="29" width="55" height="5" rx="2.5" fill="#fff" opacity="0.75" />
+                <rect x="14" y="41" width="62" height="5" rx="2.5" fill="#fff" opacity="0.75" />
+              </g>
+
+              {/* Certificate – right */}
+              <g transform="translate(618,290)">
+                <rect x="0" y="0" width="148" height="192" rx="12" fill="rgba(255,255,255,0.09)" transform="rotate(6 74 96)" />
+                <rect x="5" y="5" width="138" height="182" rx="10" fill="rgba(239,246,255,0.12)" transform="rotate(6 74 96)" />
+                <text x="74" y="40" textAnchor="middle" fill="#bfdbfe" fontSize="17" fontWeight="700" transform="rotate(6 74 96)">Certificate</text>
+                <circle cx="74" cy="90" r="24" fill="#fbbf24" opacity="0.9" transform="rotate(6 74 96)" />
+                <polygon points="74,76 77,86 87,87 80,94 82,104 74,99 66,104 68,94 61,87 71,86" fill="#f59e0b" transform="rotate(6 74 96)" />
+                <rect x="22" y="128" width="104" height="4" rx="2" fill="#bfdbfe" opacity="0.35" transform="rotate(6 74 96)" />
+                <rect x="32" y="142" width="84" height="4" rx="2" fill="#bfdbfe" opacity="0.35" transform="rotate(6 74 96)" />
+                <rect x="38" y="156" width="68" height="4" rx="2" fill="#bfdbfe" opacity="0.35" transform="rotate(6 74 96)" />
+              </g>
+            </svg>
+          </div>
+          {/* END SVG — no extra element or padding below */}
+
+          {/* feature pills */}
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "8px",
+              justifyContent: "center",
+              marginTop: "22px",
+            }}
+          >
+            {["Branch-aware content", "Instant MCQ grading", "Secure portal"].map(
+              (t) => (
+                <span
+                  key={t}
+                  style={{
+                    background: "rgba(255,255,255,0.11)",
+                    border: "1px solid rgba(255,255,255,0.20)",
+                    borderRadius: "999px",
+                    padding: "5px 14px",
+                    fontSize: "12px",
+                    color: "#e0f2fe",
+                    fontWeight: 500,
+                  }}
+                >
+                  {t}
+                </span>
+              )
+            )}
           </div>
         </div>
-
-        {/* BOTTOM GRADIENT SECTION */}
-        <div className="h-32 bg-gradient-to-b from-[#2c5282] to-[#bfdbfe]"></div>
       </div>
     </div>
+  );
+}
+
+/* ══════════ SHARED SUB-COMPONENTS & STYLES ══════════ */
+
+const lbl = {
+  display: "block",
+  fontSize: "13px",
+  fontWeight: 600,
+  color: "#374151",
+};
+
+const inputBase = {
+  width: "100%",
+  height: "48px",
+  paddingLeft: "42px",
+  paddingRight: "14px",
+  border: "1.5px solid #e5e7eb",
+  borderRadius: "10px",
+  backgroundColor: "#f9fafb",
+  color: "#111827",
+  fontSize: "14px",
+  boxSizing: "border-box",
+  transition: "border-color 0.2s, box-shadow 0.2s, background-color 0.2s",
+};
+
+const submitBase = {
+  width: "100%",
+  height: "50px",
+  borderRadius: "10px",
+  background: "linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%)",
+  color: "#fff",
+  fontWeight: 700,
+  fontSize: "15px",
+  border: "none",
+  boxShadow: "0 4px 14px rgba(37,99,235,0.30)",
+  transition: "transform 0.18s, box-shadow 0.18s",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "10px",
+};
+
+const textLinkStyle = {
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  fontWeight: 700,
+  color: "#1e3a8a",
+  fontSize: "13px",
+  textDecoration: "underline",
+  textUnderlineOffset: "2px",
+};
+
+function Field({ icon: Icon, label, type = "text", ...props }) {
+  return (
+    <div>
+      <label style={{ ...lbl, marginBottom: "6px" }}>{label}</label>
+      <div style={{ position: "relative" }}>
+        <Icon
+          size={17}
+          style={{
+            position: "absolute",
+            left: "14px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#9ca3af",
+            pointerEvents: "none",
+          }}
+        />
+        <input
+          type={type}
+          {...props}
+          required
+          className="fl-input"
+          style={inputBase}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <span
+      style={{
+        width: "16px",
+        height: "16px",
+        border: "2px solid rgba(255,255,255,0.35)",
+        borderTopColor: "#fff",
+        borderRadius: "50%",
+        display: "inline-block",
+        animation: "fl-spin 0.7s linear infinite",
+      }}
+    />
   );
 }

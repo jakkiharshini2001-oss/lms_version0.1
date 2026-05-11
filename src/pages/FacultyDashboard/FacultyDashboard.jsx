@@ -268,8 +268,7 @@ export default function FacultyDashboard() {
 
   const openSubjectDetails = (subject) => {
     navigate(
-      `/faculty/my-subjects/${encodeURIComponent(subject.name)}?year=${
-        subject.year
+      `/faculty/my-subjects/${encodeURIComponent(subject.name)}?year=${subject.year
       }&semester=${subject.semester || ""}`
     );
   };
@@ -329,13 +328,6 @@ export default function FacultyDashboard() {
                 Upload Course
               </button>
 
-              <button
-                onClick={() => navigate("/faculty/upload")}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-[14px] shadow-sm shadow-blue-200"
-              >
-                <Plus size={16} />
-                Add Content
-              </button>
             </div>
           </div>
 

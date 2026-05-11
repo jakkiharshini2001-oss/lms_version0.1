@@ -6,19 +6,57 @@ import {
   Lock,
   BriefcaseBusiness,
   ChevronDown,
-  ArrowLeft,
-  CheckCircle2,
-  BookOpen,
-  GraduationCap,
-  FileText,
-  Award,
-  Users,
-  TrendingUp,
+  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import "../../App.css";
 import oulogo from "../../assets/images/Eng_college_log.png";
 
+/* ─── Inject global styles once ─── */
+(function injectStyles() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("fs-global")) return;
+  const s = document.createElement("style");
+  s.id = "fs-global";
+  s.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    @keyframes fs-spin { to { transform: rotate(360deg); } }
+
+    /* right panel: hidden by default, visible on ≥1024 px */
+    .fs-right-panel { display: none !important; }
+    @media (min-width: 1024px) {
+      .fs-right-panel { display: flex !important; }
+    }
+
+    /* input / select focus rings via CSS so we don't fight inline styles */
+    .fs-input:focus {
+      border-color: #2563eb !important;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15) !important;
+      background-color: #fff !important;
+      outline: none;
+    }
+    .fs-select:focus {
+      border-color: #2563eb !important;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15) !important;
+      background-color: #fff !important;
+      outline: none;
+    }
+
+    /* submit button hover */
+    .fs-submit:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(37,99,235,0.38) !important;
+    }
+    .fs-submit:not(:disabled):active { transform: translateY(0); }
+
+    /* brand link hover */
+    .fs-brand:hover { opacity: 0.8; }
+  `;
+  document.head.appendChild(s);
+})();
+
+/* ─── Departments ─── */
 const departments = [
   "Biomedical Engineering",
   "Civil Engineering",
@@ -34,10 +72,12 @@ const departments = [
   "Physical Education",
 ];
 
+/* ═══════════════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════════════ */
 export default function FacultySignup() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -47,16 +87,11 @@ export default function FacultySignup() {
     confirmPassword: "",
   });
 
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
-  };
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (
       !form.name ||
       !form.email ||
@@ -68,230 +103,255 @@ export default function FacultySignup() {
       alert("Please fill all fields");
       return;
     }
-
     if (form.password !== form.confirmPassword) {
       alert("Passwords do not match");
       return;
     }
-
     const email = form.email.toLowerCase().trim();
-
     const allowedDomains = ["@osmania.ac.in", "@uceou.edu", "@gmail.com"];
-
-    const isValidDomain = allowedDomains.some((domain) =>
-      email.endsWith(domain)
-    );
-
-    if (!isValidDomain) {
-      alert(
-        "Only @osmania.ac.in, @uceou.edu, or @gmail.com emails are allowed."
-      );
+    if (!allowedDomains.some((d) => email.endsWith(d))) {
+      alert("Only @osmania.ac.in, @uceou.edu, or @gmail.com emails are allowed.");
       return;
     }
-
     try {
       setLoading(true);
-
       const { data, error } = await supabase.auth.signUp({
         email,
         password: form.password,
         options: {
-          data: {
-            role: "faculty",
-            name: form.name,
-            department: form.department,
-          },
+          data: { role: "faculty", name: form.name, department: form.department },
           emailRedirectTo: `${window.location.origin}/faculty/login`,
         },
       });
-
       if (error) throw error;
-
       const user = data.user ?? data.session?.user;
-
       if (!user) {
-        alert(
-          "Account already exists or email verification required. Please login."
-        );
+        alert("Account already exists or email verification required. Please login.");
         navigate("/faculty/login");
         return;
       }
-
       const { error: insertError } = await supabase.from("faculty").insert([
         {
           id: user.id,
           name: form.name,
-          email: email,
+          email,
           employee_id: form.employeeId,
           department: form.department,
         },
       ]);
-
-      if (insertError) {
-        console.error("Insert error:", insertError);
-        throw new Error("Unable to save faculty profile");
-      }
-
+      if (insertError) throw new Error("Unable to save faculty profile");
       alert("Account created successfully!");
       navigate("/faculty/login");
     } catch (err) {
       console.error("Signup Error:", err);
-
       if (err.message?.includes("User already registered")) {
         alert("User already exists. Please login.");
         navigate("/faculty/login");
         return;
       }
-
       alert(err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
+  /* ── JSX ── */
   return (
-    <div className="w-full min-h-screen flex bg-white">
-      {/* LEFT PANEL - SCROLLABLE FORM */}
-      <div className="w-full lg:w-1/2 flex flex-col bg-[#fdfcfb]">
-        {/* STICKY HEADER */}
-        <div className="sticky top-0 z-20 bg-[#fdfcfb]/95 backdrop-blur-sm border-b border-slate-100 px-6 sm:px-12 py-6">
-          <div className="flex items-center justify-between max-w-[520px]">
-            <div className="flex items-center gap-3">
-              <button
-                             type="button"
-                             onClick={() => navigate("/")}
-                             className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-                           >
-                             <img
-                               src={oulogo}
-                               alt="OU Logo"
-                               className="w-12 h-12 rounded-lg"
-                             />
-                             
-                           </button>
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.28em] text-slate-900 mb-0.15 font-semibold">
-                  LMS · Osmania University
-                </p>
-                <p className="text-sm font-semibold text-slate-900">
-                  Faculty Portal
-                </p>
-              </div>
-            </div>
+    <div
+      style={{
+        display: "flex",
+        width: "100%",
+        height: "100vh",
+        overflow: "hidden",
+        fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+        backgroundColor: "#fff",
+      }}
+    >
 
+      {/* ══════════ LEFT PANEL – FORM ══════════ */}
+      <div
+        style={{
+          flex: "1 1 0",
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: "#fff",
+          overflowY: "auto",
+        }}
+      >
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            justifyContent: "center",
+            padding: "44px 28px",
+          }}
+        >
+          <div style={{ width: "100%", maxWidth: "440px" }}>
+
+            {/* BRAND */}
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors font-medium"
+              className="fs-brand"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+                marginBottom: "42px",
+                transition: "opacity 0.2s",
+              }}
             >
-              <ArrowLeft className="w-4 h-4" />
-              Back
+              <img
+                src={oulogo}
+                alt="OU Logo"
+                style={{
+                  width: "44px",
+                  height: "44px",
+                  borderRadius: "10px",
+                  objectFit: "cover",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+                }}
+              />
+              <div>
+                <p
+                  style={{
+                    fontSize: "10px",
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "#6b7280",
+                    fontWeight: 600,
+                    marginBottom: "2px",
+                  }}
+                >
+                  LMS · Osmania University
+                </p>
+                <p style={{ fontSize: "14px", fontWeight: 700, color: "#111827" }}>
+                  Faculty Portal
+                </p>
+              </div>
             </button>
-          </div>
-        </div>
 
-        {/* SCROLLABLE CONTENT */}
-        <div className="flex-1 overflow-y-auto px-6 sm:px-12 py-8">
-          <div className="max-w-[520px]">
             {/* HEADING */}
-            <div className="mb-10">
-              <h1 className="text-[42px] font-extrabold text-slate-950 leading-tight mb-3">
-                Create account
+            <div style={{ marginBottom: "30px" }}>
+              <h1
+                style={{
+                  fontSize: "clamp(26px,4vw,34px)",
+                  fontWeight: 800,
+                  color: "#111827",
+                  lineHeight: 1.15,
+                  marginBottom: "10px",
+                  letterSpacing: "-0.4px",
+                }}
+              >
+                Create your account
               </h1>
-              <p className="text-base text-slate-500 leading-relaxed">
-                Sign up with your university email and unlock branch-aware
+              <p style={{ fontSize: "14px", color: "#6b7280", lineHeight: 1.65 }}>
+                Sign up with your university email to access branch-aware
                 lectures, notes, and instant-graded MCQs.
               </p>
             </div>
 
             {/* FORM */}
-            <form onSubmit={handleSubmit} noValidate className="space-y-5">
-              <InputField
-                icon={User}
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                placeholder="Dr. John Doe"
-                label="Name"
-              />
+            <form
+              onSubmit={handleSubmit}
+              noValidate
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            >
+              <Field icon={User} name="name" value={form.name} onChange={handleChange}
+                placeholder="Dr. John Doe" label="Full Name" />
 
-              <InputField
-                icon={Mail}
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="you@uceou.edu"
-                label="Email"
-                type="email"
-              />
+              <Field icon={Mail} name="email" value={form.email} onChange={handleChange}
+                placeholder="you@uceou.edu" label="University Email" type="email" />
 
-              <InputField
-                icon={BriefcaseBusiness}
-                name="employeeId"
-                value={form.employeeId}
-                onChange={handleChange}
-                placeholder="EMP12345"
-                label="Employee ID"
-              />
+              <Field icon={BriefcaseBusiness} name="employeeId" value={form.employeeId}
+                onChange={handleChange} placeholder="EMP12345" label="Employee ID" />
 
               {/* DEPARTMENT */}
               <div>
-                <label className="font-semibold mb-2 block text-slate-800">
-                  Department
-                </label>
-                <div className="relative">
+                <label style={lbl}>Department</label>
+                <div style={{ position: "relative" }}>
                   <select
                     name="department"
                     value={form.department}
                     onChange={handleChange}
                     required
-                    className="w-full h-[52px] pl-4 pr-10 border border-slate-200 rounded-2xl bg-white text-slate-900 outline-none focus:border-[#173f82] focus:ring-2 focus:ring-[#173f82]/10 appearance-none"
+                    className="fs-select"
+                    style={selectBase}
                   >
                     <option value="">Select department</option>
-                    {departments.map((dept, i) => (
-                      <option key={i}>{dept}</option>
-                    ))}
+                    {departments.map((d, i) => <option key={i}>{d}</option>)}
                   </select>
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+                  <ChevronDown
+                    size={17}
+                    style={{
+                      position: "absolute", right: "13px", top: "50%",
+                      transform: "translateY(-50%)", color: "#9ca3af", pointerEvents: "none",
+                    }}
+                  />
                 </div>
               </div>
 
-              <InputField
-                icon={Lock}
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                placeholder="••••••"
-                label="Password"
-                type="password"
-              />
+              <Field icon={Lock} name="password" value={form.password} onChange={handleChange}
+                placeholder="Min. 8 characters" label="Password" type="password" />
 
-              <InputField
-                icon={Lock}
-                name="confirmPassword"
-                value={form.confirmPassword}
-                onChange={handleChange}
-                placeholder="••••••"
-                label="Confirm Password"
-                type="password"
-              />
+              <Field icon={Lock} name="confirmPassword" value={form.confirmPassword}
+                onChange={handleChange} placeholder="Re-enter password"
+                label="Confirm Password" type="password" />
 
-              {/* SUBMIT BUTTON */}
+              {/* SUBMIT */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-[55px] rounded-2xl bg-gradient-to-r from-[#173f82] to-[#1d4ed8] text-white font-semibold text-base shadow-lg shadow-slate-200/30 transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70 active:scale-[0.98]"
+                className="fs-submit"
+                style={{
+                  width: "100%",
+                  height: "50px",
+                  borderRadius: "10px",
+                  background: "linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "15px",
+                  border: "none",
+                  marginTop: "6px",
+                  boxShadow: "0 4px 14px rgba(37,99,235,0.30)",
+                  transition: "transform 0.18s, box-shadow 0.18s",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  opacity: loading ? 0.72 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "10px",
+                }}
               >
-                {loading ? "Creating..." : "Create Account"}
+                {loading && (
+                  <span
+                    style={{
+                      width: "16px", height: "16px",
+                      border: "2px solid rgba(255,255,255,0.35)",
+                      borderTopColor: "#fff", borderRadius: "50%",
+                      display: "inline-block",
+                      animation: "fs-spin 0.7s linear infinite",
+                    }}
+                  />
+                )}
+                {loading ? "Creating account…" : "Create Account"}
               </button>
 
-              {/* LOGIN LINK */}
-              <p className="text-center text-sm text-slate-500 mt-6">
+              {/* SIGN-IN */}
+              <p style={{ textAlign: "center", fontSize: "13px", color: "#6b7280" }}>
                 Already have an account?{" "}
                 <button
                   type="button"
                   onClick={() => navigate("/faculty/login")}
-                  className="font-semibold text-[#173f82] hover:text-[#1d4ed8]"
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    fontWeight: 700, color: "#1e3a8a", fontSize: "13px",
+                    textDecoration: "underline", textUnderlineOffset: "2px",
+                  }}
                 >
                   Sign in
                 </button>
@@ -299,91 +359,205 @@ export default function FacultySignup() {
             </form>
 
             {/* FOOTER */}
-            <p className="text-center text-xs text-slate-400 mt-12">
+            <p
+              style={{
+                textAlign: "center", fontSize: "11px",
+                color: "#9ca3af", marginTop: "32px",
+              }}
+            >
               © 2026 LMS · Osmania University
             </p>
           </div>
         </div>
       </div>
 
-      {/* RIGHT PANEL - FIXED ILLUSTRATION */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#0b2f66] relative overflow-hidden items-center justify-center p-12">
-        {/* BACKGROUND DECORATIONS */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] bg-repeat"></div>
-        </div>
+      {/* ══════════ RIGHT PANEL – BLUE ILLUSTRATION ══════════ */}
+      {/*
+        .fs-right-panel is display:none by default;
+        at ≥1024 px the injected CSS overrides it to display:flex.
+        We do NOT set display inline so the CSS can win.
+      */}
+      <div
+        className="fs-right-panel"
+        style={{
+          flex: "0 0 48%",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          overflow: "hidden",
+          background:
+            "linear-gradient(145deg,#0f2167 0%,#1e40af 52%,#0369a1 100%)",
+          minHeight: "100vh",
+          padding: "48px 40px",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* grid texture */}
+        <div
+          style={{
+            position: "absolute", inset: 0,
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px)," +
+              "linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)",
+            backgroundSize: "44px 44px",
+            pointerEvents: "none",
+          }}
+        />
+        {/* decorative blobs */}
+        <div style={{
+          position: "absolute", top: "-140px", left: "-140px",
+          width: "400px", height: "400px", borderRadius: "50%",
+          background: "rgba(255,255,255,0.06)", pointerEvents: "none",
+        }} />
+        <div style={{
+          position: "absolute", bottom: "-110px", right: "-110px",
+          width: "320px", height: "320px", borderRadius: "50%",
+          background: "rgba(255,255,255,0.05)", pointerEvents: "none",
+        }} />
 
-        {/* CONTENT CONTAINER */}
-        <div className="relative z-10 w-full max-w-xl">
-          {/* TOP TEXT SECTION */}
-          <div className="mb-10">
-            <p className="text-sm uppercase tracking-[0.28em] text-slate-200/80 mb-4">
-              Official campus LMS
-            </p>
-            <h2 className="text-5xl font-extrabold leading-tight tracking-[-0.04em] mb-5 text-white">
-              The official LMS for Osmania University.
-            </h2>
-            <p className="text-base text-slate-200/90 max-w-lg">
-              Lectures, notes, and instant-graded MCQs — all branch-aware.
-            </p>
+        {/* CONTENT (z above decorations) */}
+        <div
+          style={{
+            position: "relative", zIndex: 1,
+            display: "flex", flexDirection: "column",
+            alignItems: "center",
+            width: "100%", maxWidth: "420px",
+          }}
+        >
+          {/* badge */}
+          <span
+            style={{
+              display: "inline-flex", alignItems: "center", gap: "6px",
+              background: "rgba(255,255,255,0.10)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              borderRadius: "999px", padding: "5px 14px",
+              fontSize: "11px", color: "#bfdbfe",
+              fontWeight: 600, letterSpacing: "0.06em",
+              textTransform: "uppercase", marginBottom: "20px",
+            }}
+          >
+            <ShieldCheck size={13} style={{ color: "#93c5fd" }} />
+            Official Faculty Portal
+          </span>
+
+          {/* headline */}
+          <h2
+            style={{
+              fontSize: "clamp(22px,2.6vw,32px)", fontWeight: 800,
+              color: "#fff", textAlign: "center",
+              lineHeight: 1.2, letterSpacing: "-0.3px",
+              marginBottom: "12px",
+            }}
+          >
+            The official LMS for<br />Osmania University
+          </h2>
+          <p
+            style={{
+              fontSize: "14px", color: "#bfdbfe",
+              textAlign: "center", lineHeight: 1.7,
+              maxWidth: "340px", marginBottom: "28px",
+            }}
+          >
+            Manage lectures, share notes, and grade MCQs — all in one
+            branch-aware platform built for faculty.
+          </p>
+
+          {/* ── SVG ILLUSTRATION
+              viewBox 800×520  →  800/520 ≈ 1.538 aspect ratio
+              display:block + lineHeight:0 removes all ghost spacing
+          ── */}
+          <div style={{ width: "100%", lineHeight: 0 }}>
+            <svg
+              viewBox="0 0 800 520"
+              xmlns="http://www.w3.org/2000/svg"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            >
+              {/* Monitor frame */}
+              <rect x="220" y="50" width="360" height="248" rx="14" fill="#1e40af" opacity="0.75" />
+              {/* Screen */}
+              <rect x="236" y="66" width="328" height="216" rx="8" fill="#1d4ed8" />
+              {/* Play circle */}
+              <circle cx="400" cy="180" r="40" fill="#06b6d4" opacity="0.92" />
+              <polygon points="391,163 391,197 423,180" fill="#fff" />
+              {/* Progress track */}
+              <rect x="274" y="264" width="252" height="5" rx="2.5" fill="#1e3a8a" />
+              <rect x="274" y="264" width="150" height="5" rx="2.5" fill="#38bdf8" />
+              {/* Controls */}
+              <polygon points="280,276 280,288 290,282" fill="#93c5fd" />
+              <rect x="296" y="276" width="3" height="12" rx="1.5" fill="#93c5fd" />
+              <rect x="303" y="276" width="3" height="12" rx="1.5" fill="#93c5fd" />
+              {/* Stand */}
+              <rect x="370" y="298" width="60" height="14" rx="4" fill="#1e3a8a" />
+              <rect x="348" y="312" width="104" height="8" rx="4" fill="#1e3a8a" />
+
+              {/* Books – bottom left */}
+              <g transform="translate(70,360)">
+                <rect x="0" y="30" width="140" height="46" rx="8" fill="#0891b2" transform="rotate(-3 70 53)" />
+                <rect x="10" y="36" width="5" height="36" fill="#0e7490" transform="rotate(-3 12.5 53)" />
+                <rect x="0" y="0" width="150" height="40" rx="8" fill="#fff" opacity="0.82" transform="rotate(2 75 20)" />
+                <rect x="10" y="5" width="5" height="30" fill="#d1d5db" transform="rotate(2 12.5 20)" />
+                <rect x="10" y="-26" width="135" height="38" rx="8" fill="#1e40af" transform="rotate(-2 77.5 -7)" />
+                <rect x="20" y="-21" width="5" height="28" fill="#1e3a8a" transform="rotate(-2 22.5 -7)" />
+              </g>
+
+              {/* Graduation cap – top right */}
+              <g transform="translate(600,90)">
+                <rect x="-30" y="0" width="100" height="8" rx="2" fill="#38bdf8" transform="rotate(-15 20 4)" />
+                <polygon points="0,8 40,8 50,-8 -10,-8" fill="#0ea5e9" transform="rotate(-15 20 0)" />
+                <ellipse cx="20" cy="15" rx="25" ry="8" fill="#0ea5e9" />
+                <rect x="15" y="15" width="10" height="28" rx="5" fill="#0ea5e9" />
+                <ellipse cx="20" cy="43" rx="8" ry="5" fill="#0369a1" />
+                <line x1="45" y1="-5" x2="45" y2="20" stroke="#67e8f9" strokeWidth="2" />
+                <circle cx="45" cy="22" r="4" fill="#67e8f9" />
+              </g>
+
+              {/* Chat bubble – left */}
+              <g transform="translate(60,195)">
+                <rect x="0" y="0" width="105" height="68" rx="14" fill="#0891b2" opacity="0.82" />
+                <polygon points="14,68 28,68 10,86" fill="#0891b2" opacity="0.82" />
+                <rect x="14" y="17" width="68" height="5" rx="2.5" fill="#fff" opacity="0.75" />
+                <rect x="14" y="29" width="55" height="5" rx="2.5" fill="#fff" opacity="0.75" />
+                <rect x="14" y="41" width="62" height="5" rx="2.5" fill="#fff" opacity="0.75" />
+              </g>
+
+              {/* Certificate – right */}
+              <g transform="translate(618,290)">
+                <rect x="0" y="0" width="148" height="192" rx="12" fill="rgba(255,255,255,0.09)" transform="rotate(6 74 96)" />
+                <rect x="5" y="5" width="138" height="182" rx="10" fill="rgba(239,246,255,0.12)" transform="rotate(6 74 96)" />
+                <text x="74" y="40" textAnchor="middle" fill="#bfdbfe" fontSize="17" fontWeight="700" transform="rotate(6 74 96)">Certificate</text>
+                <circle cx="74" cy="90" r="24" fill="#fbbf24" opacity="0.9" transform="rotate(6 74 96)" />
+                <polygon points="74,76 77,86 87,87 80,94 82,104 74,99 66,104 68,94 61,87 71,86" fill="#f59e0b" transform="rotate(6 74 96)" />
+                <rect x="22" y="128" width="104" height="4" rx="2" fill="#bfdbfe" opacity="0.35" transform="rotate(6 74 96)" />
+                <rect x="32" y="142" width="84" height="4" rx="2" fill="#bfdbfe" opacity="0.35" transform="rotate(6 74 96)" />
+                <rect x="38" y="156" width="68" height="4" rx="2" fill="#bfdbfe" opacity="0.35" transform="rotate(6 74 96)" />
+              </g>
+            </svg>
           </div>
+          {/* END SVG — no extra element or padding after this */}
 
-          {/* ILLUSTRATION CARD - EXACT MATCH */}
-          <div className="relative rounded-[32px] bg-white/10 border border-white/15 p-8 overflow-hidden shadow-[0_40px_120px_rgba(15,23,42,0.18)]">
-            {/* DECORATIVE BLURS */}
-            <div className="absolute -left-16 -top-16 w-44 h-44 rounded-full bg-white/10 blur-3xl"></div>
-            <div className="absolute -right-12 bottom-10 w-36 h-36 rounded-full bg-[#2563eb]/20 blur-3xl"></div>
-
-            <div className="relative z-10">
-              {/* MAIN VIDEO/CONTENT CARD */}
-              <div className="rounded-[28px] bg-[#e8f2ff] p-6 shadow-xl mb-6">
-                <div className="relative h-52 rounded-[30px] overflow-hidden bg-[#d9e7ff]">
-                  {/* Small white card - top left */}
-                  <div className="absolute left-6 top-6 w-20 h-12 rounded-2xl bg-white/80 shadow-sm"></div>
-
-                  {/* Large dark blue card - bottom left */}
-                  <div className="absolute left-6 bottom-6 w-36 h-24 rounded-[24px] bg-[#163a8a] shadow-xl"></div>
-
-                  {/* Medium blue card - top right */}
-                  <div className="absolute right-8 top-10 w-20 h-16 rounded-[18px] bg-[#1d4ed8] shadow-lg"></div>
-
-                  {/* White outlined card - middle left */}
-                  <div className="absolute left-10 top-20 w-20 h-20 rounded-3xl bg-[#eff6ff] border border-slate-200 shadow-sm"></div>
-
-                  {/* Play button circle - bottom right */}
-                  <div className="absolute right-10 bottom-8 w-16 h-16 rounded-full bg-[#0ea5e9] grid place-items-center text-white text-lg font-bold shadow-lg">
-                    ▶
-                  </div>
-                </div>
-              </div>
-
-              {/* BOTTOM TWO CARDS */}
-              <div className="grid gap-4 grid-cols-2">
-                {/* LEFT CARD - Certificate */}
-                <div className="rounded-3xl bg-white/10 p-4 shadow-xl backdrop-blur-sm">
-                  <div className="text-[11px] uppercase tracking-[0.24em] text-slate-300 mb-3 font-semibold">
-                    Certificate
-                  </div>
-                  <div className="rounded-3xl bg-white/10 p-4 space-y-3">
-                    <div className="h-2.5 rounded-full bg-slate-300/70 w-3/4"></div>
-                    <div className="h-2.5 rounded-full bg-slate-300/70 w-1/2"></div>
-                    <div className="h-2.5 rounded-full bg-slate-300/70 w-2/3"></div>
-                  </div>
-                </div>
-
-                {/* RIGHT CARD - Resources */}
-                <div className="rounded-3xl bg-white/10 p-4 shadow-xl backdrop-blur-sm">
-                  <div className="text-[11px] uppercase tracking-[0.24em] text-slate-300 mb-3 font-semibold">
-                    Resources
-                  </div>
-                  <div className="rounded-3xl bg-white/10 p-4 space-y-3">
-                    <div className="h-2.5 rounded-full bg-slate-300/70 w-2/3"></div>
-                    <div className="h-2.5 rounded-full bg-slate-300/70 w-3/4"></div>
-                    <div className="h-2.5 rounded-full bg-slate-300/70 w-1/2"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* feature pills */}
+          <div
+            style={{
+              display: "flex", flexWrap: "wrap", gap: "8px",
+              justifyContent: "center", marginTop: "22px",
+            }}
+          >
+            {["Branch-aware content", "Instant MCQ grading", "Secure portal"].map(
+              (t) => (
+                <span
+                  key={t}
+                  style={{
+                    background: "rgba(255,255,255,0.11)",
+                    border: "1px solid rgba(255,255,255,0.20)",
+                    borderRadius: "999px", padding: "5px 14px",
+                    fontSize: "12px", color: "#e0f2fe", fontWeight: 500,
+                  }}
+                >
+                  {t}
+                </span>
+              )
+            )}
           </div>
         </div>
       </div>
@@ -391,20 +565,65 @@ export default function FacultySignup() {
   );
 }
 
-/* INPUT COMPONENT */
-function InputField({ icon: Icon, label, type = "text", ...props }) {
+/* ══════════ INPUT FIELD COMPONENT ══════════ */
+const lbl = {
+  display: "block",
+  fontSize: "13px",
+  fontWeight: 600,
+  color: "#374151",
+  marginBottom: "6px",
+};
+
+const selectBase = {
+  width: "100%",
+  height: "48px",
+  paddingLeft: "14px",
+  paddingRight: "36px",
+  border: "1.5px solid #e5e7eb",
+  borderRadius: "10px",
+  backgroundColor: "#f9fafb",
+  color: "#111827",
+  fontSize: "14px",
+  appearance: "none",
+  boxSizing: "border-box",
+  cursor: "pointer",
+  transition: "border-color 0.2s, box-shadow 0.2s, background-color 0.2s",
+};
+
+function Field({ icon: Icon, label, type = "text", ...props }) {
   return (
     <div>
-      <label className="font-semibold mb-2 block text-slate-800">
-        {label}
-      </label>
-      <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+      <label style={lbl}>{label}</label>
+      <div style={{ position: "relative" }}>
+        <Icon
+          size={17}
+          style={{
+            position: "absolute",
+            left: "14px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#9ca3af",
+            pointerEvents: "none",
+          }}
+        />
         <input
           type={type}
           {...props}
           required
-          className="w-full h-[52px] pl-10 pr-4 border border-slate-200 rounded-2xl bg-slate-50 text-slate-900 outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 transition-all"
+          className="fs-input"
+          style={{
+            width: "100%",
+            height: "48px",
+            paddingLeft: "42px",
+            paddingRight: "14px",
+            border: "1.5px solid #e5e7eb",
+            borderRadius: "10px",
+            backgroundColor: "#f9fafb",
+            color: "#111827",
+            fontSize: "14px",
+            boxSizing: "border-box",
+            transition: "border-color 0.2s, box-shadow 0.2s, background-color 0.2s",
+          }}
         />
       </div>
     </div>

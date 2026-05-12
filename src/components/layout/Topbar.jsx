@@ -44,15 +44,15 @@ export default function Topbar() {
     }, []);
 
     return (
-        <div className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-30 shadow-sm">
+        <div className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-30 shadow-sm">
 
             {/* SEARCH */}
-            <div className="flex items-center bg-gray-100 px-4 py-2 rounded-lg w-[400px]">
-                <Search size={18} className="text-gray-500" />
+            <div className="flex items-center bg-gray-100 px-5 py-3 rounded-xl w-[400px]">
+                <Search size={20} className="text-gray-500" />
                 <input
                     type="text"
                     placeholder="Search lectures, subjects..."
-                    className="ml-2 bg-transparent outline-none w-full text-sm"
+                    className="ml-3 bg-transparent outline-none w-full text-base"
                 />
             </div>
 
@@ -73,12 +73,12 @@ export default function Topbar() {
                         className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-lg"
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
                     >
-                        <img src={oulogo} alt="OU Logo" className="w-9 h-9 rounded-full" />
-                        <div className="text-sm">
+                        <img src={oulogo} alt="OU Logo" className="w-11 h-11 rounded-full" />
+                        <div className="text-base">
                             <p className="font-semibold">
                                 {faculty?.name || "Loading..."}
                             </p>
-                            <p className="text-gray-500 text-xs">
+                            <p className="text-gray-500 text-sm">
                                 {faculty?.department || ""}
                             </p>
                         </div>

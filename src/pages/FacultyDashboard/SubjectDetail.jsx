@@ -15,7 +15,6 @@ import {
   Download,
 } from "lucide-react";
 
-import * as XLSX from "xlsx";
 import { supabase } from "../../lib/supabaseClient";
 
 export default function SubjectDetails() {
@@ -34,7 +33,7 @@ export default function SubjectDetails() {
   const [selectedPdf, setSelectedPdf] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
-  const [assessmentRows, setAssessmentRows] = useState([]);
+  const [assessmentError, setAssessmentError] = useState(false);
   const [pdfError, setPdfError] = useState(false);
 
   useEffect(() => {
@@ -44,6 +43,10 @@ export default function SubjectDetails() {
   useEffect(() => {
     setPdfError(false);
   }, [selectedPdf]);
+
+  useEffect(() => {
+    setAssessmentError(false);
+  }, [selectedAssessment]);
 
   /**
    * Drive /preview works for both PDFs and videos.
@@ -180,21 +183,8 @@ export default function SubjectDetails() {
     });
   };
 
-  const handleAssessmentPreview = async (assessment) => {
+  const handleAssessmentPreview = (assessment) => {
     setSelectedAssessment(assessment);
-    setAssessmentRows([]);
-    try {
-      const url = assessment.download_url || assessment.file_url;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("fetch failed");
-      const arrayBuffer = await response.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: "array" });
-      const ws = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-      setAssessmentRows(rows);
-    } catch {
-      setAssessmentRows([["Could not load preview. Use the Download button to view the file."]]);
-    }
   };
 
   const getTitle = () => {
@@ -211,7 +201,7 @@ export default function SubjectDetails() {
 
         <div className="flex-1 overflow-y-auto p-6">
           <button
-            onClick={() => navigate("/faculty/my-subjects")}
+            onClick={() => navigate("/faculty/subjects")}
             className="mb-6 flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
           >
             <ArrowLeft size={18} />
@@ -507,7 +497,10 @@ export default function SubjectDetails() {
       {/* ── ASSESSMENT PREVIEW MODAL ── */}
       {selectedAssessment && (
         <div className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white w-full h-full rounded-xl overflow-hidden flex flex-col">
+          <div
+            className="w-full h-full rounded-xl overflow-hidden flex flex-col"
+            style={{ background: "#2b2b2b", border: "1px solid #444" }}
+          >
             <div
               className="flex items-center justify-between px-6 py-4 flex-shrink-0"
               style={{ background: "#06254D" }}
@@ -519,6 +512,17 @@ export default function SubjectDetails() {
                 <p className="text-blue-200 text-sm">Excel Sheet Preview</p>
               </div>
               <div className="flex items-center gap-3">
+                {selectedAssessment.file_url && (
+                  <a
+                    href={selectedAssessment.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <ExternalLink size={15} />
+                    Open in Drive
+                  </a>
+                )}
                 {selectedAssessment.download_url && (
                   <a
                     href={selectedAssessment.download_url}
@@ -531,7 +535,7 @@ export default function SubjectDetails() {
                   </a>
                 )}
                 <button
-                  onClick={() => { setSelectedAssessment(null); setAssessmentRows([]); }}
+                  onClick={() => { setSelectedAssessment(null); setAssessmentError(false); }}
                   className="w-10 h-10 rounded-lg flex items-center justify-center text-white"
                   style={{ background: "rgba(255,255,255,0.1)" }}
                 >
@@ -540,29 +544,62 @@ export default function SubjectDetails() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto bg-gray-100 p-6">
-              {assessmentRows.length === 0 ? (
-                <div className="bg-white rounded-xl p-10 text-center text-gray-500">
-                  Loading preview...
+            <div className="flex-1 overflow-hidden" style={{ background: "#202020" }}>
+              {assessmentError ? (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-white p-8">
+                  <div className="text-6xl">📝</div>
+                  <p className="text-xl font-semibold text-center">Preview unavailable</p>
+                  <p className="text-gray-400 text-center max-w-md">
+                    The file requires Google sign-in to preview or could not be embedded. Use the buttons below to open or download it.
+                  </p>
+                  <div className="flex gap-4 flex-wrap justify-center">
+                    {selectedAssessment.file_url && (
+                      <a
+                        href={selectedAssessment.file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors"
+                      >
+                        <ExternalLink size={18} />
+                        Open in Google Drive
+                      </a>
+                    )}
+                    {selectedAssessment.download_url && (
+                      <a
+                        href={selectedAssessment.download_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black px-6 py-3 rounded-xl font-bold transition-colors"
+                      >
+                        <Download size={18} />
+                        Download Excel
+                      </a>
+                    )}
+                  </div>
                 </div>
+              ) : selectedAssessment.embed_url ? (
+                <iframe
+                  key={selectedAssessment.id}
+                  src={selectedAssessment.embed_url}
+                  title={selectedAssessment.title}
+                  className="w-full h-full bg-white"
+                  allow="autoplay"
+                  onError={() => setAssessmentError(true)}
+                  style={{ border: "none" }}
+                />
               ) : (
-                <div className="bg-white rounded-xl border shadow-sm overflow-auto">
-                  <table className="min-w-full border-collapse text-sm">
-                    <tbody>
-                      {assessmentRows.map((row, ri) => (
-                        <tr
-                          key={ri}
-                          className={ri === 0 ? "bg-gray-200 font-bold" : "hover:bg-gray-50"}
-                        >
-                          {row.map((cell, ci) => (
-                            <td key={ci} className="border px-4 py-3 whitespace-nowrap">
-                              {cell}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-white">
+                  <p className="text-gray-400">No preview URL available.</p>
+                  {selectedAssessment.file_url && (
+                    <a
+                      href={selectedAssessment.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold"
+                    >
+                      Open in Drive
+                    </a>
+                  )}
                 </div>
               )}
             </div>

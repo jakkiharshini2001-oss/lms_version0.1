@@ -37,93 +37,89 @@ const supabase = createClient(
 );
 
 //////////////////////////////////////////////////////
-// 🔐 GOOGLE AUTH (STABLE CONFIG)
+// 🔐 GOOGLE DRIVE AUTH (for PDFs + Assessments)
 //////////////////////////////////////////////////////
 
-const oauth2Client = new google.auth.OAuth2(
+const driveOAuth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
   "https://developers.google.com/oauthplayground"
 );
 
-// Force refresh token load
-oauth2Client.setCredentials({
+driveOAuth2Client.setCredentials({
   refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
 });
 
 const drive = google.drive({
   version: "v3",
-  auth: oauth2Client,
+  auth: driveOAuth2Client,
 });
 
 //////////////////////////////////////////////////////
-// 🧪 TEST ROUTE (VERY IMPORTANT)
+// 🔐 YOUTUBE AUTH (Central LMS YouTube channel)
+//    Uses a SEPARATE OAuth2 client with the dedicated
+//    YouTube account credentials + refresh token.
 //////////////////////////////////////////////////////
 
-app.get("/test-drive", async (req, res) => {
-  try {
-    const token = await oauth2Client.getAccessToken();
-    res.json({
-      ok: true,
-      accessTokenWorking: !!token?.token,
-    });
-  } catch (err) {
-    res.status(500).json({
-      ok: false,
-      error: err.message,
-    });
-  }
+const youtubeOAuth2Client = new google.auth.OAuth2(
+  process.env.YOUTUBE_CLIENT_ID,
+  process.env.YOUTUBE_CLIENT_SECRET,
+  "https://developers.google.com/oauthplayground" // same redirect used when generating the token
+);
+
+youtubeOAuth2Client.setCredentials({
+  refresh_token: process.env.YOUTUBE_REFRESH_TOKEN,
 });
 
 //////////////////////////////////////////////////////
-// 🚀 DRIVE UPLOAD (FIXED & SAFE)
+// 🛠️ HELPERS
 //////////////////////////////////////////////////////
 
-async function uploadToDrive(file) {
-  try {
-    console.log("Uploading:", file.originalname);
-
-    // FORCE TOKEN REFRESH (CRITICAL FIX)
-    const tokenResponse = await oauth2Client.getAccessToken();
-
-    if (!tokenResponse || !tokenResponse.token) {
-      throw new Error("Google refresh token invalid or expired");
-    }
-
-    const response = await drive.files.create({
-      requestBody: {
-        name: file.originalname,
-        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
-      },
-      media: {
-        mimeType: file.mimetype,
-        body: fs.createReadStream(file.path),
-      },
-    });
-
-    const fileId = response.data.id;
-
-    await drive.permissions.create({
-      fileId,
-      requestBody: {
-        role: "reader",
-        type: "anyone",
-      },
-    });
-
-    console.log("UPLOAD SUCCESS:", fileId);
-    return fileId;
-
-  } catch (err) {
-    console.error("🔥 DRIVE ERROR:", err.response?.data || err.message);
-    throw err;
-  }
+/**
+ * Get a fresh YouTube access token using the central account's refresh token.
+ * Called on every upload session request so the token is never stale.
+ */
+async function getYouTubeAccessToken() {
+  const { token } = await youtubeOAuth2Client.getAccessToken();
+  if (!token) throw new Error("Failed to obtain YouTube access token");
+  return token;
 }
 
-//////////////////////////////////////////////////////
-// 🔥 SUPABASE HELPERS
-//////////////////////////////////////////////////////
+/**
+ * Upload a file to Google Drive and return its file ID.
+ */
+async function uploadToDrive(file) {
+  const fileMetadata = {
+    name: file.originalname,
+    parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+  };
 
+  const media = {
+    mimeType: file.mimetype,
+    body: fs.createReadStream(file.path),
+  };
+
+  const response = await drive.files.create({
+    requestBody: fileMetadata,
+    media,
+    fields: "id",
+  });
+
+  // Make the file publicly readable so students can access it
+  await drive.permissions.create({
+    fileId: response.data.id,
+    requestBody: {
+      role: "reader",
+      type: "anyone",
+    },
+  });
+
+  return response.data.id;
+}
+
+/**
+ * Fetch the display name of a faculty member from Supabase.
+ */
 async function getFacultyName(faculty_id) {
   const { data, error } = await supabase
     .from("faculty")
@@ -131,134 +127,12 @@ async function getFacultyName(faculty_id) {
     .eq("id", faculty_id)
     .single();
 
-  if (error || !data?.name) {
-    throw new Error("Faculty not found");
-  }
-
+  if (error || !data) return "Unknown Faculty";
   return data.name;
 }
 
 //////////////////////////////////////////////////////
-// 🎯 UPLOAD CONTENT
-//////////////////////////////////////////////////////
-
-app.post("/upload-content", upload.single("file"), async (req, res) => {
-  try {
-    console.log("UPLOAD HIT");
-
-    const {
-      faculty_id,
-      type,
-      department,
-      year,
-      semester,
-      subject,
-      unit,
-      title,
-    } = req.body;
-
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-
-    const faculty_name = await getFacultyName(faculty_id);
-    const fileId = await uploadToDrive(req.file);
-
-    fs.unlinkSync(req.file.path);
-
-    if (type === "video") {
-      const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-
-      await supabase.from("videos").insert([{
-        faculty_id,
-        faculty_name,
-        department,
-        year,
-        semester,
-        subject,
-        unit,
-        title,
-        file_id: fileId,
-        embed_url: embedUrl,
-      }]);
-
-      return res.json({ success: true, embedUrl });
-    }
-
-    if (type === "pdf") {
-      const fileUrl = `https://drive.google.com/uc?id=${fileId}`;
-
-      await supabase.from("pdfs").insert([{
-        faculty_id,
-        faculty_name,
-        department,
-        year,
-        semester,
-        subject,
-        unit,
-        title,
-        file_id: fileId,
-        file_url: fileUrl,
-      }]);
-
-      return res.json({ success: true, fileUrl });
-    }
-
-    return res.status(400).json({ error: "Invalid type" });
-
-  } catch (error) {
-    console.error("UPLOAD ERROR:", error.message);
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-//////////////////////////////////////////////////////
-// 📊 ASSESSMENT UPLOAD
-//////////////////////////////////////////////////////
-
-app.post("/upload-assessment", upload.single("file"), async (req, res) => {
-  try {
-    const {
-      faculty_id,
-      department,
-      year,
-      semester,
-      subject,
-      unit,
-      title,
-    } = req.body;
-
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-
-    const faculty_name = await getFacultyName(faculty_id);
-    const fileId = await uploadToDrive(req.file);
-
-    fs.unlinkSync(req.file.path);
-
-    await supabase.from("assessments").insert([{
-      faculty_id,
-      faculty_name,
-      department,
-      year,
-      semester,
-      subject,
-      unit,
-      title,
-      file_id: fileId,
-    }]);
-
-    return res.json({ success: true });
-
-  } catch (error) {
-    console.error("ASSESSMENT ERROR:", error.message);
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-//////////////////////////////////////////////////////
-// ❤️ HEALTH CHECK
+// 🧪 TEST ROUTES
 //////////////////////////////////////////////////////
 
 app.get("/", (req, res) => {
@@ -269,10 +143,279 @@ app.get("/", (req, res) => {
       GOOGLE_CLIENT_SECRET: !!process.env.GOOGLE_CLIENT_SECRET,
       GOOGLE_REFRESH_TOKEN: !!process.env.GOOGLE_REFRESH_TOKEN,
       GOOGLE_DRIVE_FOLDER_ID: !!process.env.GOOGLE_DRIVE_FOLDER_ID,
+      YOUTUBE_CLIENT_ID: !!process.env.YOUTUBE_CLIENT_ID,
+      YOUTUBE_CLIENT_SECRET: !!process.env.YOUTUBE_CLIENT_SECRET,
+      YOUTUBE_REFRESH_TOKEN: !!process.env.YOUTUBE_REFRESH_TOKEN,
       SUPABASE_URL: !!process.env.SUPABASE_URL,
       SUPABASE_SERVICE_KEY: !!process.env.SUPABASE_SERVICE_KEY,
-    }
+    },
   });
+});
+
+app.get("/test-drive", async (req, res) => {
+  try {
+    const token = await driveOAuth2Client.getAccessToken();
+    res.json({ ok: true, accessTokenWorking: !!token?.token });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/test-youtube", async (req, res) => {
+  try {
+    const token = await getYouTubeAccessToken();
+    res.json({ ok: true, accessTokenWorking: !!token });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+//////////////////////////////////////////////////////
+// 🚀 YOUTUBE — Create resumable upload session
+//
+// The frontend calls this FIRST to get a one-time
+// resumable upload URL from YouTube. The video bytes
+// are then streamed DIRECTLY from the browser to
+// YouTube — they never touch Render.
+//
+// Flow:
+//   Frontend → POST /create-youtube-upload-session
+//   Backend  → YouTube resumable upload API (init)
+//   Backend  → returns { uploadUrl } to frontend
+//   Frontend → PUT chunks directly to uploadUrl
+//   YouTube  → returns videoId when done
+//   Frontend → POST /save-video-metadata
+//////////////////////////////////////////////////////
+
+app.post("/create-youtube-upload-session", async (req, res) => {
+  try {
+    const { title, description = "", tags = [], fileSize, mimeType = "video/*" } = req.body;
+
+    if (!title || !fileSize) {
+      return res.status(400).json({ error: "title and fileSize are required" });
+    }
+
+    // Step 1: get a fresh access token for the central YouTube account
+    const accessToken = await getYouTubeAccessToken();
+
+    // Step 2: hit the YouTube resumable upload API directly.
+    //         The googleapis JS client does NOT expose the raw resumable
+    //         upload URL — we must call the HTTP endpoint ourselves.
+    const initResponse = await fetch(
+      "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "X-Upload-Content-Length": fileSize.toString(),
+          "X-Upload-Content-Type": mimeType,
+        },
+        body: JSON.stringify({
+          snippet: {
+            title,
+            description,
+            tags,
+            categoryId: "27", // Education
+          },
+          status: {
+            privacyStatus: "unlisted", // Change to "public" if you want open access
+            selfDeclaredMadeForKids: false,
+          },
+        }),
+      }
+    );
+
+    if (!initResponse.ok) {
+      const errText = await initResponse.text();
+      console.error("YouTube init error:", errText);
+      return res.status(500).json({ error: "YouTube rejected the upload session", detail: errText });
+    }
+
+    // YouTube returns the resumable upload URL in the Location header
+    const uploadUrl = initResponse.headers.get("location");
+
+    if (!uploadUrl) {
+      return res.status(500).json({ error: "YouTube did not return an upload URL" });
+    }
+
+    console.log("✅ YouTube resumable session created");
+    return res.json({ uploadUrl });
+
+  } catch (error) {
+    console.error("CREATE YOUTUBE SESSION ERROR:", error.message);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+//////////////////////////////////////////////////////
+// 💾 YOUTUBE — Save video metadata after upload
+//
+// After the frontend finishes uploading directly to
+// YouTube and receives the videoId, it calls this
+// endpoint to persist metadata in Supabase.
+// Schema stays EXACTLY as-is (no changes required).
+//////////////////////////////////////////////////////
+
+app.post("/save-video-metadata", async (req, res) => {
+  try {
+    const {
+      videoId,
+      faculty_id,
+      faculty_name,
+      department,
+      year,
+      semester,
+      subject,
+      unit,
+      title,
+    } = req.body;
+
+    // Validate required fields
+    if (!videoId || !faculty_id || !title) {
+      return res.status(400).json({ error: "videoId, faculty_id, and title are required" });
+    }
+
+    const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+
+    const { error } = await supabase.from("videos").insert([
+      {
+        faculty_id,
+        faculty_name: faculty_name || (await getFacultyName(faculty_id)),
+        department,
+        year: Number(year),
+        semester: Number(semester),
+        subject,
+        unit,
+        title,
+        file_id: videoId,       // YouTube video ID stored here (matches existing schema)
+        embed_url: embedUrl,    // YouTube embed URL (existing iframe still works)
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    if (error) throw error;
+
+    console.log("✅ Video metadata saved:", videoId);
+    return res.status(200).json({ success: true, embedUrl });
+
+  } catch (error) {
+    console.error("SAVE METADATA ERROR:", error.message);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+//////////////////////////////////////////////////////
+// 🎯 UPLOAD CONTENT — PDFs only (video removed)
+//
+// Videos now bypass Render entirely via YouTube
+// resumable upload. This route handles PDFs only.
+// Passing type="video" will return a 400 error to
+// prevent accidental large file uploads through Render.
+//////////////////////////////////////////////////////
+
+app.post("/upload-content", upload.single("file"), async (req, res) => {
+  try {
+    console.log("UPLOAD HIT");
+
+    const { faculty_id, type, department, year, semester, subject, unit, title } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Guard: videos must use the YouTube flow, not this route
+    if (type === "video") {
+      fs.unlinkSync(req.file.path); // clean up temp file
+      return res.status(400).json({
+        error: "Video uploads are not handled here. Use /create-youtube-upload-session instead.",
+      });
+    }
+
+    if (type === "pdf") {
+      const faculty_name = await getFacultyName(faculty_id);
+      const fileId = await uploadToDrive(req.file);
+
+      fs.unlinkSync(req.file.path);
+
+      const fileUrl = `https://drive.google.com/uc?id=${fileId}`;
+
+      const { error } = await supabase.from("pdfs").insert([
+        {
+          faculty_id,
+          faculty_name,
+          department,
+          year: Number(year),
+          semester: Number(semester),
+          subject,
+          unit,
+          title,
+          file_id: fileId,
+          file_url: fileUrl,
+        },
+      ]);
+
+      if (error) throw error;
+
+      return res.json({ success: true, fileUrl });
+    }
+
+    // Clean up if type is unrecognised
+    fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: "Invalid type. Supported types: pdf" });
+
+  } catch (error) {
+    // Ensure temp file is cleaned up on any error
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    console.error("UPLOAD ERROR:", error.message);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+//////////////////////////////////////////////////////
+// 📊 ASSESSMENT UPLOAD — unchanged
+//////////////////////////////////////////////////////
+
+app.post("/upload-assessment", upload.single("file"), async (req, res) => {
+  try {
+    const { faculty_id, department, year, semester, subject, unit, title } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const faculty_name = await getFacultyName(faculty_id);
+    const fileId = await uploadToDrive(req.file);
+
+    fs.unlinkSync(req.file.path);
+
+    const { error } = await supabase.from("assessments").insert([
+      {
+        faculty_id,
+        faculty_name,
+        department,
+        year: Number(year),
+        semester: Number(semester),
+        subject,
+        unit,
+        title,
+        file_id: fileId,
+      },
+    ]);
+
+    if (error) throw error;
+
+    return res.json({ success: true });
+
+  } catch (error) {
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    console.error("ASSESSMENT ERROR:", error.message);
+    return res.status(500).json({ error: error.message });
+  }
 });
 
 //////////////////////////////////////////////////////
@@ -281,5 +424,5 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+  console.log(`Server running on port ${PORT}`);
 });

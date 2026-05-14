@@ -1,107 +1,240 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, Bell, Plus, ChevronDown, User, HelpCircle, LogOut } from "lucide-react";
+import {
+    Bell,
+    ChevronDown,
+    User,
+    HelpCircle,
+    LogOut,
+    Settings,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
-import oulogo from "../../assets/images/Eng_college_log.png";
 
 export default function Topbar() {
     const navigate = useNavigate();
+
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [faculty, setFaculty] = useState(null);
+    const [loading, setLoading] = useState(true);
+
     const dropdownRef = useRef(null);
 
-    const [faculty, setFaculty] = useState(null);
-
-    // 🔹 Fetch logged-in faculty
     useEffect(() => {
-        const fetchFaculty = async () => {
-            const { data: userData } = await supabase.auth.getUser();
-
-            if (userData?.user) {
-                const { data, error } = await supabase
-                    .from("faculty") // 👈 make sure table name matches
-                    .select("*")
-                    .eq("id", userData.user.id)
-                    .single();
-
-                if (!error) {
-                    setFaculty(data);
-                }
-            }
-        };
-
         fetchFaculty();
     }, []);
 
-    // Close dropdown
+    const fetchFaculty = async () => {
+        try {
+            setLoading(true);
+
+            const {
+                data: { user },
+                error: userError,
+            } = await supabase.auth.getUser();
+
+            if (userError) throw userError;
+
+            if (!user) {
+                navigate("/faculty/login");
+                return;
+            }
+
+            const { data, error } = await supabase
+                .from("faculty")
+                .select(
+                    "id, name, email, department, designation, employee_id, profile_photo"
+                )
+                .eq("id", user.id)
+                .single();
+
+            if (error) throw error;
+
+            setFaculty(data);
+        } catch (error) {
+            console.error("Error fetching faculty:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+            if (
+                dropdownRef.current &&
+                !dropdownRef.current.contains(event.target)
+            ) {
                 setIsProfileOpen(false);
             }
         };
+
         document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+
+        return () =>
+            document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    const handleLogout = async () => {
+        try {
+            await supabase.auth.signOut();
+
+            localStorage.removeItem("faculty");
+            sessionStorage.clear();
+
+            navigate("/faculty/login");
+        } catch (error) {
+            console.error("Logout error:", error);
+            navigate("/faculty/login");
+        }
+    };
+
+    const getInitial = () => {
+        if (faculty?.name) return faculty.name.charAt(0).toUpperCase();
+        if (faculty?.email) return faculty.email.charAt(0).toUpperCase();
+        return "F";
+    };
 
     return (
         <div className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-30 shadow-sm">
-
-            {/* SEARCH */}
-            <div className="flex items-center bg-gray-100 px-5 py-3 rounded-xl w-[400px]">
-                <Search size={20} className="text-gray-500" />
-                <input
-                    type="text"
-                    placeholder="Search lectures, subjects..."
-                    className="ml-3 bg-transparent outline-none w-full text-base"
-                />
+            {/* LEFT SIDE */}
+            <div>
+                <h2 className="text-lg font-bold text-gray-800">
+                    Faculty Portal
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                    Osmania University Learning Management System
+                </p>
             </div>
 
             {/* RIGHT SIDE */}
             <div className="flex items-center gap-4">
-
                 {/* NOTIFICATION */}
-                <div className="relative cursor-pointer">
-                    <Bell size={20} className="text-gray-600" />
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full">
+                <button
+                    type="button"
+                    className="relative w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition"
+                    title="Notifications"
+                >
+                    <Bell size={19} className="text-gray-600" />
+
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] min-w-4 h-4 px-1 flex items-center justify-center rounded-full">
                         2
                     </span>
-                </div>
+                </button>
 
                 {/* PROFILE */}
                 <div className="relative" ref={dropdownRef}>
-                    <div 
-                        className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-lg"
-                        onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    <button
+                        type="button"
+                        className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded-xl transition"
+                        onClick={() => setIsProfileOpen((prev) => !prev)}
                     >
-                        <img src={oulogo} alt="OU Logo" className="w-11 h-11 rounded-full" />
-                        <div className="text-base">
-                            <p className="font-semibold">
-                                {faculty?.name || "Loading..."}
+                        {faculty?.profile_photo ? (
+                            <img
+                                src={faculty.profile_photo}
+                                alt={faculty?.name || "Faculty"}
+                                className="w-11 h-11 rounded-full object-cover border border-gray-200"
+                                onError={(e) => {
+                                    e.currentTarget.style.display = "none";
+                                }}
+                            />
+                        ) : (
+                            <div className="w-11 h-11 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold border border-blue-100">
+                                {getInitial()}
+                            </div>
+                        )}
+
+                        <div className="hidden sm:block text-left max-w-[190px]">
+                            <p className="font-semibold text-sm text-gray-800 truncate">
+                                {loading ? "Loading..." : faculty?.name || "Faculty"}
                             </p>
-                            <p className="text-gray-500 text-sm">
-                                {faculty?.department || ""}
+
+                            <p className="text-gray-500 text-xs truncate">
+                                {faculty?.department || "Department"}
                             </p>
                         </div>
 
-                        <ChevronDown size={14} />
-                    </div>
+                        <ChevronDown
+                            size={15}
+                            className={`text-gray-500 transition-transform ${isProfileOpen ? "rotate-180" : ""
+                                }`}
+                        />
+                    </button>
 
                     {/* DROPDOWN */}
                     {isProfileOpen && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white border rounded-xl shadow-lg">
-                            <button onClick={() => navigate("/faculty/profile")} className="w-full px-4 py-2 text-left">
+                        <div className="absolute right-0 mt-3 w-64 bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden z-50">
+                            <div className="px-4 py-4 border-b border-gray-100">
+                                <div className="flex items-center gap-3">
+                                    {faculty?.profile_photo ? (
+                                        <img
+                                            src={faculty.profile_photo}
+                                            alt={faculty?.name || "Faculty"}
+                                            className="w-12 h-12 rounded-full object-cover border border-gray-200"
+                                        />
+                                    ) : (
+                                        <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                                            {getInitial()}
+                                        </div>
+                                    )}
+
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-sm text-gray-800 truncate">
+                                            {faculty?.name || "Faculty"}
+                                        </p>
+
+                                        <p className="text-xs text-gray-500 truncate">
+                                            {faculty?.email || ""}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {faculty?.designation && (
+                                    <p className="mt-3 text-xs text-gray-500">
+                                        {faculty.designation}
+                                    </p>
+                                )}
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    setIsProfileOpen(false);
+                                    navigate("/faculty/profile");
+                                }}
+                                className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                            >
+                                <User size={16} className="text-gray-500" />
                                 Profile Settings
                             </button>
 
                             <button
-                                onClick={async () => {
-                                    await supabase.auth.signOut();
-                                    navigate("/faculty/login");
+                                onClick={() => {
+                                    setIsProfileOpen(false);
+                                    navigate("/faculty/profile");
                                 }}
-                                className="w-full px-4 py-2 text-left text-red-600"
+                                className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
                             >
-                                Logout
+                                <Settings size={16} className="text-gray-500" />
+                                Account Settings
                             </button>
+
+                            <button
+                                onClick={() => {
+                                    setIsProfileOpen(false);
+                                }}
+                                className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                            >
+                                <HelpCircle size={16} className="text-gray-500" />
+                                Help & Support
+                            </button>
+
+                            <div className="border-t border-gray-100">
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+                                >
+                                    <LogOut size={16} />
+                                    Logout
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

@@ -56,15 +56,13 @@ const drive = google.drive({
 });
 
 //////////////////////////////////////////////////////
-// 🔐 YOUTUBE AUTH (Central LMS YouTube channel)
-//    Uses a SEPARATE OAuth2 client with the dedicated
-//    YouTube account credentials + refresh token.
+// 🔐 YOUTUBE AUTH
 //////////////////////////////////////////////////////
 
 const youtubeOAuth2Client = new google.auth.OAuth2(
   process.env.YOUTUBE_CLIENT_ID,
   process.env.YOUTUBE_CLIENT_SECRET,
-  "https://developers.google.com/oauthplayground" // same redirect used when generating the token
+  "https://developers.google.com/oauthplayground"
 );
 
 youtubeOAuth2Client.setCredentials({
@@ -75,19 +73,12 @@ youtubeOAuth2Client.setCredentials({
 // 🛠️ HELPERS
 //////////////////////////////////////////////////////
 
-/**
- * Get a fresh YouTube access token using the central account's refresh token.
- * Called on every upload session request so the token is never stale.
- */
 async function getYouTubeAccessToken() {
   const { token } = await youtubeOAuth2Client.getAccessToken();
   if (!token) throw new Error("Failed to obtain YouTube access token");
   return token;
 }
 
-/**
- * Upload a file to Google Drive and return its file ID.
- */
 async function uploadToDrive(file) {
   const fileMetadata = {
     name: file.originalname,
@@ -105,7 +96,6 @@ async function uploadToDrive(file) {
     fields: "id",
   });
 
-  // Make the file publicly readable so students can access it
   await drive.permissions.create({
     fileId: response.data.id,
     requestBody: {
@@ -117,9 +107,6 @@ async function uploadToDrive(file) {
   return response.data.id;
 }
 
-/**
- * Fetch the display name of a faculty member from Supabase.
- */
 async function getFacultyName(faculty_id) {
   const { data, error } = await supabase
     .from("faculty")
@@ -172,19 +159,6 @@ app.get("/test-youtube", async (req, res) => {
 
 //////////////////////////////////////////////////////
 // 🚀 YOUTUBE — Create resumable upload session
-//
-// The frontend calls this FIRST to get a one-time
-// resumable upload URL from YouTube. The video bytes
-// are then streamed DIRECTLY from the browser to
-// YouTube — they never touch Render.
-//
-// Flow:
-//   Frontend → POST /create-youtube-upload-session
-//   Backend  → YouTube resumable upload API (init)
-//   Backend  → returns { uploadUrl } to frontend
-//   Frontend → PUT chunks directly to uploadUrl
-//   YouTube  → returns videoId when done
-//   Frontend → POST /save-video-metadata
 //////////////////////////////////////////////////////
 
 app.post("/create-youtube-upload-session", async (req, res) => {
@@ -195,12 +169,8 @@ app.post("/create-youtube-upload-session", async (req, res) => {
       return res.status(400).json({ error: "title and fileSize are required" });
     }
 
-    // Step 1: get a fresh access token for the central YouTube account
     const accessToken = await getYouTubeAccessToken();
 
-    // Step 2: hit the YouTube resumable upload API directly.
-    //         The googleapis JS client does NOT expose the raw resumable
-    //         upload URL — we must call the HTTP endpoint ourselves.
     const initResponse = await fetch(
       "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
       {
@@ -216,10 +186,10 @@ app.post("/create-youtube-upload-session", async (req, res) => {
             title,
             description,
             tags,
-            categoryId: "27", // Education
+            categoryId: "27",
           },
           status: {
-            privacyStatus: "unlisted", // Change to "public" if you want open access
+            privacyStatus: "unlisted",
             selfDeclaredMadeForKids: false,
           },
         }),
@@ -232,7 +202,6 @@ app.post("/create-youtube-upload-session", async (req, res) => {
       return res.status(500).json({ error: "YouTube rejected the upload session", detail: errText });
     }
 
-    // YouTube returns the resumable upload URL in the Location header
     const uploadUrl = initResponse.headers.get("location");
 
     if (!uploadUrl) {
@@ -249,12 +218,7 @@ app.post("/create-youtube-upload-session", async (req, res) => {
 });
 
 //////////////////////////////////////////////////////
-// 💾 YOUTUBE — Save video metadata after upload
-//
-// After the frontend finishes uploading directly to
-// YouTube and receives the videoId, it calls this
-// endpoint to persist metadata in Supabase.
-// Schema stays EXACTLY as-is (no changes required).
+// 💾 YOUTUBE — Save video metadata
 //////////////////////////////////////////////////////
 
 app.post("/save-video-metadata", async (req, res) => {
@@ -271,7 +235,6 @@ app.post("/save-video-metadata", async (req, res) => {
       title,
     } = req.body;
 
-    // Validate required fields
     if (!videoId || !faculty_id || !title) {
       return res.status(400).json({ error: "videoId, faculty_id, and title are required" });
     }
@@ -288,8 +251,8 @@ app.post("/save-video-metadata", async (req, res) => {
         subject,
         unit,
         title,
-        file_id: videoId,       // YouTube video ID stored here (matches existing schema)
-        embed_url: embedUrl,    // YouTube embed URL (existing iframe still works)
+        file_id: videoId,
+        embed_url: embedUrl,
         created_at: new Date().toISOString(),
       },
     ]);
@@ -307,60 +270,49 @@ app.post("/save-video-metadata", async (req, res) => {
 
 //////////////////////////////////////////////////////
 // 🔀 YOUTUBE — Proxy chunk upload
-//
-// Browser cannot PUT directly to googleapis.com —
-// YouTube's resumable upload endpoint blocks cross-origin
-// requests (no CORS headers on their upload API).
-//
-// Solution: browser sends each chunk to THIS endpoint,
-// which streams it straight to YouTube.
-// Render never buffers the whole file — it pipes each
-// chunk as it arrives, so memory stays low.
-//
-// Request headers the frontend must send:
-//   x-upload-url   : the resumable uploadUrl from /create-youtube-upload-session
-//   x-content-range: bytes START-END/TOTAL  (e.g. bytes 0-8388607/104857600)
-//   content-type   : video/*  (or actual mime type)
-//
-// Response mirrors YouTube's response:
-//   308  → chunk accepted, Range header tells next offset
-//   200/201 → upload complete, body has { id, ... }
 //////////////////////////////////////////////////////
 
-app.post("/proxy-youtube-chunk", express.raw({ type: "*/*", limit: "12mb" }), async (req, res) => {
+app.post("/proxy-youtube-chunk", express.raw({ type: "*/*", limit: "70mb" }), async (req, res) => {
   try {
     const uploadUrl    = req.headers["x-upload-url"];
     const contentRange = req.headers["x-content-range"];
-    const contentType  = req.headers["content-type"] || "video/*";
+    const contentType  = req.headers["content-type"] || "application/octet-stream";
 
-    if (!uploadUrl || !contentRange) {
-      return res.status(400).json({ error: "x-upload-url and x-content-range headers are required" });
+    if (!uploadUrl) {
+      return res.status(400).json({ error: "x-upload-url header is required" });
     }
+
+    if (!contentRange) {
+      return res.status(400).json({ error: "x-content-range header is required" });
+    }
+
+    console.log(`📤 Proxying chunk: ${contentRange}`);
 
     const ytResponse = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
         "Content-Range": contentRange,
         "Content-Type":  contentType,
-        "Content-Length": req.body.length.toString(),
       },
-      body: req.body,  // raw Buffer — piped straight to YouTube
+      body: req.body,
     });
 
-    // Forward YouTube's response status + headers back to browser
     const rangeHeader = ytResponse.headers.get("Range");
-    if (rangeHeader) res.setHeader("Range", rangeHeader);
+    if (rangeHeader) {
+      res.setHeader("Range", rangeHeader);
+    }
 
     if (ytResponse.status === 308) {
+      console.log(`✅ Chunk accepted, range: ${rangeHeader}`);
       return res.status(308).end();
     }
 
     if (ytResponse.status === 200 || ytResponse.status === 201) {
       const data = await ytResponse.json();
+      console.log(`✅ Upload complete, videoId: ${data.id}`);
       return res.status(200).json(data);
     }
 
-    // Unexpected status — forward it
     const errText = await ytResponse.text();
     console.error("YouTube chunk error:", ytResponse.status, errText);
     return res.status(ytResponse.status).send(errText);
@@ -372,12 +324,7 @@ app.post("/proxy-youtube-chunk", express.raw({ type: "*/*", limit: "12mb" }), as
 });
 
 //////////////////////////////////////////////////////
-// 🎯 UPLOAD CONTENT — PDFs only (video removed)
-//
-// Videos now bypass Render entirely via YouTube
-// resumable upload. This route handles PDFs only.
-// Passing type="video" will return a 400 error to
-// prevent accidental large file uploads through Render.
+// 🎯 UPLOAD CONTENT — PDFs only
 //////////////////////////////////////////////////////
 
 app.post("/upload-content", upload.single("file"), async (req, res) => {
@@ -390,9 +337,8 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    // Guard: videos must use the YouTube flow, not this route
     if (type === "video") {
-      fs.unlinkSync(req.file.path); // clean up temp file
+      fs.unlinkSync(req.file.path);
       return res.status(400).json({
         error: "Video uploads are not handled here. Use /create-youtube-upload-session instead.",
       });
@@ -426,12 +372,10 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
       return res.json({ success: true, fileUrl });
     }
 
-    // Clean up if type is unrecognised
     fs.unlinkSync(req.file.path);
     return res.status(400).json({ error: "Invalid type. Supported types: pdf" });
 
   } catch (error) {
-    // Ensure temp file is cleaned up on any error
     if (req.file?.path && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
@@ -441,7 +385,7 @@ app.post("/upload-content", upload.single("file"), async (req, res) => {
 });
 
 //////////////////////////////////////////////////////
-// 📊 ASSESSMENT UPLOAD — unchanged
+// 📊 ASSESSMENT UPLOAD
 //////////////////////////////////////////////////////
 
 app.post("/upload-assessment", upload.single("file"), async (req, res) => {

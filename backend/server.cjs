@@ -306,6 +306,72 @@ app.post("/save-video-metadata", async (req, res) => {
 });
 
 //////////////////////////////////////////////////////
+// 🔀 YOUTUBE — Proxy chunk upload
+//
+// Browser cannot PUT directly to googleapis.com —
+// YouTube's resumable upload endpoint blocks cross-origin
+// requests (no CORS headers on their upload API).
+//
+// Solution: browser sends each chunk to THIS endpoint,
+// which streams it straight to YouTube.
+// Render never buffers the whole file — it pipes each
+// chunk as it arrives, so memory stays low.
+//
+// Request headers the frontend must send:
+//   x-upload-url   : the resumable uploadUrl from /create-youtube-upload-session
+//   x-content-range: bytes START-END/TOTAL  (e.g. bytes 0-8388607/104857600)
+//   content-type   : video/*  (or actual mime type)
+//
+// Response mirrors YouTube's response:
+//   308  → chunk accepted, Range header tells next offset
+//   200/201 → upload complete, body has { id, ... }
+//////////////////////////////////////////////////////
+
+app.post("/proxy-youtube-chunk", express.raw({ type: "*/*", limit: "12mb" }), async (req, res) => {
+  try {
+    const uploadUrl    = req.headers["x-upload-url"];
+    const contentRange = req.headers["x-content-range"];
+    const contentType  = req.headers["content-type"] || "video/*";
+
+    if (!uploadUrl || !contentRange) {
+      return res.status(400).json({ error: "x-upload-url and x-content-range headers are required" });
+    }
+
+    const ytResponse = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Range": contentRange,
+        "Content-Type":  contentType,
+        "Content-Length": req.body.length.toString(),
+      },
+      body: req.body,  // raw Buffer — piped straight to YouTube
+    });
+
+    // Forward YouTube's response status + headers back to browser
+    const rangeHeader = ytResponse.headers.get("Range");
+    if (rangeHeader) res.setHeader("Range", rangeHeader);
+
+    if (ytResponse.status === 308) {
+      return res.status(308).end();
+    }
+
+    if (ytResponse.status === 200 || ytResponse.status === 201) {
+      const data = await ytResponse.json();
+      return res.status(200).json(data);
+    }
+
+    // Unexpected status — forward it
+    const errText = await ytResponse.text();
+    console.error("YouTube chunk error:", ytResponse.status, errText);
+    return res.status(ytResponse.status).send(errText);
+
+  } catch (error) {
+    console.error("PROXY CHUNK ERROR:", error.message);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+//////////////////////////////////////////////////////
 // 🎯 UPLOAD CONTENT — PDFs only (video removed)
 //
 // Videos now bypass Render entirely via YouTube
